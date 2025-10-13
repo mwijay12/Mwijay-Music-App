@@ -1,0 +1,8 @@
+{
+  "name": " Mwijay Music App ",
+  "description": "A modern music player experience with curated playlists and trending music.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "prompt": ""
+}
