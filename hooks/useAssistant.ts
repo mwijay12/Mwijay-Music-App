@@ -287,7 +287,7 @@ export const useAssistant = ({ getAppState, controls, showNotification }: UseAss
                     }
                 }
             });
-            const jsonText = (response.text || '').trim();
+            const jsonText = (response.text ?? '').trim();
             try {
                 const colors = JSON.parse(jsonText);
                 return colors;

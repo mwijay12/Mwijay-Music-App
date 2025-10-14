@@ -1,3 +1,4 @@
+declare var process: any;
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 import type { ChatMessage, Song, ProfileData } from '../types.ts';
@@ -286,7 +287,7 @@ export const useAssistant = ({ getAppState, controls, showNotification }: UseAss
                     }
                 }
             });
-            const jsonText = response.text.trim();
+            const jsonText = (response.text ?? '').trim();
             try {
                 const colors = JSON.parse(jsonText);
                 return colors;
@@ -419,38 +420,38 @@ ${systemContext}
                                 confirmationText = "Changed repeat mode.";
                                 break;
                             case 'playRadio':
-                                const query = fc.args.query as string | undefined;
+                                const query = fc.args?.query as string | undefined;
                                 controls.playRadio(query);
                                 confirmationText = query ? `Searching for "${query}" radio...` : "Tuning into a random station for you!";
                                 break;
                             case 'searchOnlineMusic':
-                                const searchQuery = fc.args.query as string;
+                                const searchQuery = fc.args?.query as string;
                                 controls.searchOnlineMusic(searchQuery);
                                 confirmationText = `Okay, searching online for "${searchQuery}"...`;
                                 break;
                             case 'setSimpleMode':
-                                const enableSimple = fc.args.enabled as boolean;
+                                const enableSimple = fc.args?.enabled as boolean;
                                 controls.setSimpleMode(enableSimple);
                                 confirmationText = `Simple Mode has been ${enableSimple ? 'enabled' : 'disabled'}.`;
                                 break;
                             case 'setThemeMode':
-                                const mode = fc.args.mode as 'light' | 'dark';
+                                const mode = fc.args?.mode as 'light' | 'dark';
                                 controls.setThemeMode(mode);
                                 confirmationText = `Switched to ${mode} theme!`;
                                 break;
                             case 'setSleepTimer':
-                                const timerMode = fc.args.mode as 'duration' | 'songs';
-                                const timerValue = fc.args.value as number;
+                                const timerMode = fc.args?.mode as 'duration' | 'songs';
+                                const timerValue = fc.args?.value as number;
                                 controls.setSleepTimer(timerMode, timerValue);
                                 confirmationText = `Okay, sleep timer set for ${timerValue} ${timerMode === 'duration' ? 'minutes' : 'songs'}.`;
                                 break;
                             case 'changeFont':
-                                const fontName = fc.args.fontName as string;
+                                const fontName = fc.args?.fontName as string;
                                 controls.changeFont(fontName);
                                 confirmationText = `Font changed to ${fontName}.`;
                                 break;
                             case 'setCustomTheme':
-                                const colorDesc = fc.args.colorDescription as string;
+                                const colorDesc = fc.args?.colorDescription as string;
                                 addMessage('assistant', `One moment, creating a new ${colorDesc} theme for you...`);
                                 generateThemeColors(colorDesc).then(colors => {
                                     if (colors) {
@@ -468,17 +469,17 @@ ${systemContext}
                                 confirmationText = `Okay, I've updated your favorites.`;
                                 break;
                             case 'playSongFromLibrary':
-                                const songTitleToPlay = fc.args.songTitle as string;
+                                const songTitleToPlay = fc.args?.songTitle as string;
                                 controls.playSongFromLibrary(songTitleToPlay);
                                 confirmationText = `Searching your library for "${songTitleToPlay}"...`;
                                 break;
                             case 'addToQueue':
-                                const songTitleToQueue = fc.args.songTitle as string;
+                                const songTitleToQueue = fc.args?.songTitle as string;
                                 controls.addToQueue(songTitleToQueue);
                                 confirmationText = `Adding "${songTitleToQueue}" to the queue.`;
                                 break;
                             case 'navigateToView':
-                                const viewName = fc.args.viewName as string;
+                                const viewName = fc.args?.viewName as string;
                                 controls.navigateToView(viewName);
                                 confirmationText = `Navigating to ${viewName}.`;
                                 break;
@@ -487,8 +488,8 @@ ${systemContext}
                                 confirmationText = "Opening the Audio FX panel.";
                                 break;
                             case 'setBackgroundEffect':
-                                const enabled = fc.args.enabled as boolean;
-                                const style = fc.args.style as ProfileData['settings']['backgroundEffects']['style'] | undefined;
+                                const enabled = fc.args?.enabled as boolean;
+                                const style = fc.args?.style as ProfileData['settings']['backgroundEffects']['style'] | undefined;
                                 controls.setBackgroundEffect(enabled, style);
                                 confirmationText = style ? `Set background effect to ${style}.` : `Background effects turned ${enabled ? 'on' : 'off'}.`;
                                 break;
@@ -500,9 +501,9 @@ ${systemContext}
                                 confirmationText = "Sorry, I can't do that right now.";
                         }
                     }
-                    assistantResponseText = response.text || confirmationText;
+                    assistantResponseText = response.text ?? confirmationText;
                 } else {
-                    assistantResponseText = response.text;
+                    assistantResponseText = response.text ?? '';
                 }
 
                 if (assistantResponseText) {
