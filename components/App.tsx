@@ -371,6 +371,27 @@ const fadeAudio = (audio: HTMLAudioElement, targetVolume: number, duration: numb
     requestAnimationFrame(animateFade);
 };
 
+const ApiKeyErrorScreen: React.FC = () => (
+  <div className="h-full w-full flex flex-col items-center justify-center bg-[#1e0000] text-white p-8 text-center">
+    <i className="fas fa-exclamation-triangle text-5xl text-red-400 mb-6"></i>
+    <h1 className="text-3xl font-bold mb-4">Configuration Error</h1>
+    <p className="max-w-md mb-6">
+      The application has failed to start because the Gemini API key is missing from the deployment environment.
+    </p>
+    <div className="bg-black/50 p-6 rounded-lg text-left max-w-lg">
+      <h2 className="font-bold text-lg mb-2 text-yellow-300">Deployment Instructions:</h2>
+      <ol className="text-sm list-decimal list-inside space-y-2">
+          <li>Go to your project settings on your deployment platform (e.g., Vercel).</li>
+          <li>Find the "Environment Variables" section.</li>
+          <li>Create a new variable named <strong>API_KEY</strong>.</li>
+          <li>Paste your Gemini API key as the value.</li>
+          <li>Save and redeploy the application.</li>
+      </ol>
+    </div>
+  </div>
+);
+
+
 const App = () => {
   const [activeView, setActiveView] = useState('Home');
   const [librarySongs, setLibrarySongs] = useState<Song[]>([]);
@@ -424,6 +445,11 @@ const App = () => {
   const justEndedRef = useRef(false);
   const isCrossfadingRef = useRef(false);
   const idleTimeoutRef = useRef<number | null>(null);
+
+  const apiKey = process.env.API_KEY;
+  if (!apiKey || apiKey === "undefined") {
+    return <ApiKeyErrorScreen />;
+  }
 
   useEffect(() => {
       const resetIdleTimer = () => {
