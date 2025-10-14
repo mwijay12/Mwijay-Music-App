@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import type { RadioStation, RadioPlaylist, ProfileData } from '../types.ts';
 import RadioStationList from './RadioStationList.tsx';
 import CreateRadioPlaylistModal from './CreateRadioPlaylistModal.tsx';

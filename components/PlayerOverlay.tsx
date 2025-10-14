@@ -92,7 +92,6 @@ interface PlayerOverlayProps {
     onToggleFavorite: () => void;
     playQueue: Song[];
     currentQueueIndex: number;
-    setPlayQueue: React.Dispatch<React.SetStateAction<Song[]>>;
     onPlayFromQueue: (song: Song) => void;
     repeatMode: 'none' | 'one' | 'all';
     isShuffled: boolean;
@@ -122,7 +121,7 @@ const formatTime = (seconds: number) => {
 };
 
 const PlayerOverlay = ({
-    isVisible, song, isPlaying, progress, duration, onClose, onTogglePlay, onNext, onPrev, onSeek, onSeekStart, onSeekEnd, onSeekBy, onToggleFavorite, playQueue, currentQueueIndex, setPlayQueue, onPlayFromQueue,
+    isVisible, song, isPlaying, progress, duration, onClose, onTogglePlay, onNext, onPrev, onSeek, onSeekStart, onSeekEnd, onSeekBy, onToggleFavorite, playQueue, currentQueueIndex, onPlayFromQueue,
     repeatMode, isShuffled, onCycleRepeat, onToggleShuffle, onSetSleepTimer, sleepTimer, profile, onUpdateProfile, onToggleLyrics, onOpenMoodModal, onOpenEqualizer, isLyricsMinimized,
     favoriteStations, onToggleFavoriteStation, isQueueFlashing, onExitSimpleMode, visualizerColor
 }: PlayerOverlayProps) => {
@@ -364,7 +363,6 @@ const PlayerOverlay = ({
                        {isLyricsMinimized && song.lyrics ? (
                            <MinimizedLyricsView song={song} profile={profile} onExpand={handleExpandLyrics} />
                        ) : (
-// FIX: Removed invalid 'setPlayQueue' prop from UpNextQueue component.
                            <UpNextQueue queue={playQueue} currentQueueIndex={currentQueueIndex} onPlayFromQueue={onPlayFromQueue} isFlashing={isQueueFlashing} />
                        )}
                     </div>

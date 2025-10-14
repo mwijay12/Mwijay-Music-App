@@ -38,7 +38,7 @@ import PlaylistView from './PlaylistView';
 import ReelPlaylistView from './ReelPlaylistView';
 import RingtoneMakerModal from './RingtoneMakerModal';
 import { MultiStepLoader } from './MultiStepLoader';
-import { useAssistant } from './useAssistant';
+import { useAssistant } from '../hooks/useAssistant';
 import { useAudioFx } from '../hooks/useAudioFx';
 // FIX: Added missing imports for fetchFromJamendo and fetchFromAudius
 import { initDB, getSongs, saveSongs, getPlaylists, savePlaylists, getProfile, saveProfile, getVideos, saveVideos, getReelPlaylists, saveReelPlaylists, getPlayQueue, savePlayQueue, getRadioPlaylists, saveRadioPlaylists, getArtists, saveArtist, fetchRadioAPI, fetchFromJamendo, fetchFromAudius } from './db';
@@ -1760,7 +1760,6 @@ useEffect(() => {
                 onToggleFavorite={() => handleToggleFavorite(nowPlaying.id)}
                 playQueue={playQueue}
                 currentQueueIndex={currentQueueIndex}
-                setPlayQueue={setPlayQueue}
                 onPlayFromQueue={(song) => { const index = playQueue.findIndex(s => s.queueId === song.queueId); if (index !== -1) { setCurrentQueueIndex(index); setIsPlaying(true); } }}
                 repeatMode={repeatMode}
                 isShuffled={isShuffled}
