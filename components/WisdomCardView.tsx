@@ -1,4 +1,3 @@
-declare var process: any;
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import type { Song, ProfileData } from '../types.ts';
 import { allWisdom } from '../constants.ts';

@@ -1,4 +1,3 @@
-declare var process: any;
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 import type { ChatMessage, Song, ProfileData } from '../types.ts';

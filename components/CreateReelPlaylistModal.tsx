@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Video, ReelPlaylist } from '../types.ts';
-import { getRandomCoverArt } from './constants.ts';
+// FIX: Corrected import path for constants.
+import { getRandomCoverArt } from '../constants.ts';
 import CoverArtPickerModal from './CoverArtPickerModal.tsx';
 
 interface CreateReelPlaylistModalProps {

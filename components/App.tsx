@@ -1,4 +1,3 @@
-declare var process: any;
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import HomeView from './HomeView';
@@ -40,10 +39,11 @@ import { MultiStepLoader } from './MultiStepLoader';
 import { useAssistant } from '../hooks/useAssistant';
 import { useAudioFx } from '../hooks/useAudioFx';
 import { initDB, getSongs, saveSongs, getPlaylists, savePlaylists, getProfile, saveProfile, getVideos, saveVideos, getReelPlaylists, saveReelPlaylists, getPlayQueue, savePlayQueue, getRadioPlaylists, saveRadioPlaylists, getArtists, saveArtist, fetchRadioAPI, fetchFromJamendo, fetchFromAudius } from './db';
-import { navItems, themePairs as themes, fonts, achievements, FAVORITES_PLAYLIST_ID, defaultMoods, getRandomCoverArt } from './constants.ts';
+// FIX: Corrected import path for constants.
+import { navItems, themePairs as themes, fonts, achievements, FAVORITES_PLAYLIST_ID, defaultMoods, getRandomCoverArt } from '../constants.ts';
 import type { Song, RadioStation, Notification as NotificationType, Playlist, ProfileData, Achievement, Video, ThemeColors, ReelPlaylist, RadioPlaylist, Artist, ThemePair } from '../types';
-// FIX: Import GoogleGenAI to resolve 'Cannot find name' error.
-import { GoogleGenAI } from '@google/genai';
+// FIX: Import GoogleGenAI and Type to resolve 'Cannot find name' error and for response schema.
+import { GoogleGenAI, Type } from '@google/genai';
 
 
 const loadingStates = [
@@ -1137,10 +1137,24 @@ const App = () => {
       
       const prompt = `Based on these songs I like (${topSongTitles.length > 0 ? topSongTitles : "various pop and electronic music"}), generate a playlist of 10 songs with a creative playlist name. The songs should be real songs that exist. Format the response as a JSON object with two keys: "playlistName" (string) and "songs" (an array of strings, where each string is "Song Title by Artist").`;
       
+// FIX: Use responseSchema for more reliable JSON output.
       const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
           contents: prompt,
-          config: { responseMimeType: "application/json" }
+          config: { 
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    playlistName: { type: Type.STRING },
+                    songs: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                    }
+                },
+                required: ["playlistName", "songs"]
+            }
+          }
       });
       const aiResponse = JSON.parse((response.text || '').trim());
 
