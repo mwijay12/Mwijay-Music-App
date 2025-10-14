@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo, useRef } from 'react';
-import type { ProfileData, Font, Achievement, NameplateAnimation } from '../types.ts';
+import type { ProfileData } from '../types.ts';
 import { fonts, achievements, nameplateAnimations } from '../constants.ts';
 import SettingsToggle from './SettingsToggle.tsx';
 
@@ -90,11 +91,10 @@ interface ProfileViewProps {
     onUpdateProfile: (updater: (prev: ProfileData) => ProfileData) => void;
     onOpenAppearance: () => void;
     onBack: () => void;
-    onPlayTopSong: (song: { id: string }) => void;
     onNavigate: (view: string) => void;
 }
 
-const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile, onOpenAppearance, onBack, onPlayTopSong, onNavigate }) => {
+const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile, onOpenAppearance, onBack, onNavigate }) => {
     const [isAchievementsVisible, setAchievementsVisible] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 

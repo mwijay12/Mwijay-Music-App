@@ -1,3 +1,4 @@
+
 declare var process: any;
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { GoogleGenAI } from '@google/genai';
@@ -1663,7 +1664,7 @@ useEffect(() => {
             setIsQueueFlashing(true);
             setTimeout(() => setIsQueueFlashing(false), 500);
             showNotification(`"${truncate(song.title, 20)}" added to queue`, 'info', 'fa-plus');
-        }} onCreatePlaylist={() => setActiveModal('create_playlist')} onToggleFavorite={handleToggleFavorite} onViewPlaylist={setPlaylistToViewId} onDeletePlaylist={(id) => setPlaylists(p => p.filter(pl => pl.id !== id))} showNotification={showNotification} onOpenSongDetails={(song) => { setModalData(song); setActiveModal('share_preview'); }} onViewArtist={setArtistToView} onOpenPlaylistManager={() => setActiveModal('playlist_manager')} onDeleteSong={(songId) => {
+        }} onCreatePlaylist={() => setActiveModal('create_playlist')} onViewPlaylist={setPlaylistToViewId} onDeletePlaylist={(id) => setPlaylists(p => p.filter(pl => pl.id !== id))} showNotification={showNotification} onOpenSongDetails={(song) => { setModalData(song); setActiveModal('share_preview'); }} onViewArtist={setArtistToView} onOpenPlaylistManager={() => setActiveModal('playlist_manager')} onDeleteSong={(songId) => {
             setLibrarySongs(s => s.filter(song => song.id !== songId));
             showNotification("Song deleted from library.", 'success');
         }} onPlayPlaylistRadio={handlePlayPlaylistRadio} recentlyAddedSongId={recentlyAddedSongId} />;
@@ -1722,7 +1723,6 @@ useEffect(() => {
                     <MiniPlayer
                         song={nowPlaying}
                         isPlaying={isPlaying}
-                        progress={duration > 0 ? progress / duration : 0}
                         onTogglePlay={handleTogglePlay}
                         onShowPlayer={() => setIsPlayerVisible(true)}
                         onToggleFavorite={() => handleToggleFavorite(nowPlaying.id)}
@@ -1806,7 +1806,7 @@ useEffect(() => {
         {activeModal === 'neon_glow' && <NeonGlowModal profile={profile} onClose={() => setActiveModal(null)} onUpdateProfile={updateProfile} />}
         {activeModal === 'share_preview' && modalData && <ShareablePreviewModal song={modalData} onClose={() => { setActiveModal(null); setModalData(null); }} />}
         {activeModal === 'playlist_manager' && <PlaylistManagerModal onClose={() => setActiveModal(null)} onImportClick={() => { setActiveModal('playlist_manager'); setActiveModal('import_playlist'); }} onExportClick={() => { /* ... export logic ... */ }} />}
-        {activeModal === 'import_playlist' && <ImportPlaylistModal onClose={() => setActiveModal(null)} isLoading={isImportingPlaylist} onImport={async (name, text) => { setIsImportingPlaylist(true); /* ... import logic ... */ setIsImportingPlaylist(false); }} />}
+        {activeModal === 'import_playlist' && <ImportPlaylistModal onClose={() => setActiveModal(null)} isLoading={isImportingPlaylist} onImport={async (_name, _text) => { setIsImportingPlaylist(true); /* ... import logic ... */ setIsImportingPlaylist(false); }} />}
         {activeModal === 'ringtone_maker' && modalData && <RingtoneMakerModal song={modalData} onClose={() => setActiveModal(null)} showNotification={showNotification} />}
         {isLyricsVisible && nowPlaying && <LyricsView song={nowPlaying} profile={profile} onClose={() => setIsLyricsVisible(false)} onMinimize={() => { setIsLyricsVisible(false); setIsLyricsMinimized(true); }} onUpdateSong={handleUpdateSong} onUpdateProfile={updateProfile} progress={progress} duration={duration} />}
 

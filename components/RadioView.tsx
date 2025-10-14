@@ -1,6 +1,7 @@
 
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import type { RadioStation, RadioPlaylist, ProfileData } from '../types.ts';
 import RadioStationList from './RadioStationList.tsx';
 import CreateRadioPlaylistModal from './CreateRadioPlaylistModal.tsx';
@@ -66,11 +67,10 @@ interface RadioViewProps {
     onToggleFavorite: (station: RadioStation) => void;
     radioPlaylists: RadioPlaylist[];
     onUpdateRadioPlaylists: (playlists: RadioPlaylist[]) => void;
-    showNotification: (msg: string, type?: 'success' | 'info' | 'error') => void;
     onNavigate: (view: string) => void;
 }
 
-const RadioView: React.FC<RadioViewProps> = ({ profile, onPlayStation, favoriteStations, onToggleFavorite, radioPlaylists, onUpdateRadioPlaylists, showNotification, onNavigate }) => {
+const RadioView: React.FC<RadioViewProps> = ({ profile, onPlayStation, favoriteStations, onToggleFavorite, radioPlaylists, onUpdateRadioPlaylists, onNavigate }) => {
     const [view, setView] = useState<'hub' | 'station_list' | 'playlists'>('hub');
     const [stationList, setStationList] = useState<RadioStation[]>([]);
     const [listTitle, setListTitle] = useState('');
@@ -224,7 +224,7 @@ const RadioView: React.FC<RadioViewProps> = ({ profile, onPlayStation, favoriteS
                             </div>
                          </header>
                          <div className="flex-1 overflow-y-auto scroll-container -mr-4 pr-4">
-                            <RadioStationList stations={stationList} onPlayStation={onPlayStation} favoriteStations={favoriteStations} onToggleFavorite={onToggleFavorite} error={null} />
+                            <RadioStationList stations={stationList} onPlayStation={onPlayStation} error={null} />
                          </div>
                     </div>
                 );

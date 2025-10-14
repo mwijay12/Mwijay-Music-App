@@ -1,17 +1,15 @@
-import React, { useMemo } from 'react';
+
+import React from 'react';
 import type { RadioStation } from '../types.ts';
 import { getRandomCoverArt } from '../constants.ts';
 
 interface RadioStationListProps {
     stations: RadioStation[];
     onPlayStation: (station: RadioStation) => void;
-    favoriteStations: RadioStation[];
-    onToggleFavorite: (station: RadioStation) => void;
     error: string | null;
 }
 
-const RadioStationList: React.FC<RadioStationListProps> = ({ stations, onPlayStation, favoriteStations, onToggleFavorite, error }) => {
-    const favoriteStationIds = useMemo(() => new Set(favoriteStations.map(s => s.stationuuid)), [favoriteStations]);
+const RadioStationList: React.FC<RadioStationListProps> = ({ stations, onPlayStation, error }) => {
 
     if (error) {
         return (

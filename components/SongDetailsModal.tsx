@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import type { Song } from '../types.ts';
 import CoverArtPickerModal from './CoverArtPickerModal.tsx';
 
@@ -25,18 +26,6 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({ song, onClose, onSa
         setArtist(song.artist);
     }, [song]);
 
-    const handleCoverArtChange = (newAlbumArtUrl: string) => {
-        // For online songs, we update locally before saving/downloading.
-        // For local songs, we trigger the update immediately.
-        const updatedSong = { ...song, albumArtUrl: newAlbumArtUrl, title, artist };
-        if (!isOnlineSong) {
-            onSave(updatedSong);
-        } else {
-            // How to handle this? The modal should manage its own state for the cover art until save.
-            // Let's pass the updated song to onSave.
-        }
-    };
-    
     const handleViewArtistClick = () => {
         if (onViewArtist) {
             onViewArtist(song.artist);

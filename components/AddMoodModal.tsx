@@ -12,7 +12,6 @@ const colors = [
     'bg-blue-500/80', 'bg-indigo-500/80', 'bg-violet-500/80', 'bg-purple-500/80', 'bg-fuchsia-500/80',
     'bg-pink-500/80', 'bg-rose-500/80'
 ];
-const textColors = ['text-white', 'text-black'];
 
 const AddMoodModal: React.FC<AddMoodModalProps> = ({ onClose, onSave }) => {
     const [emoji, setEmoji] = useState('😀');

@@ -1,6 +1,6 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Song, ProfileData } from '../types.ts';
-import { getRandomCoverArt } from '../constants.ts';
 import { fetchFromAudius, fetchFromArchive, fetchFromJamendo } from './db.ts';
 import OnlineSearchLoader from './OnlineSearchLoader.tsx';
 import SongDetailsModal from './SongDetailsModal.tsx';
@@ -25,7 +25,7 @@ const useSearchHistory = (storageKey: string) => {
             try {
                 window.localStorage.setItem(storageKey, JSON.stringify(newHistory));
             } catch (error) {
-                console.error("Error saving search history to localStorage", String(error));
+                console.error("Error saving search history to localStorage", error);
             }
             return newHistory;
         });
@@ -36,7 +36,7 @@ const useSearchHistory = (storageKey: string) => {
         try {
             window.localStorage.removeItem(storageKey);
         } catch (error) {
-            console.error("Error clearing search history from localStorage", String(error));
+            console.error("Error clearing search history from localStorage", error);
         }
     }, [storageKey]);
 
@@ -74,7 +74,6 @@ interface OnlineDiscoveryViewProps {
     onNavigate: (view: string) => void;
     onPlayAiPlaylist: () => void;
     isGeneratingAiPlaylist: boolean;
-    onUpdateProfile: (updater: (prev: ProfileData) => ProfileData) => void;
     initialSearchQuery?: string;
     onClearInitialSearch?: () => void;
     onOpenSongDetails: (song: Song) => void;
@@ -153,7 +152,7 @@ const SongRow: React.FC<{ song: Song; onPlay: () => void; onDownload: () => void
     );
 };
 
-const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, librarySongs, onPlaySong, onAddSongs, showNotification, onNavigate, onPlayAiPlaylist, isGeneratingAiPlaylist, onUpdateProfile, initialSearchQuery, onClearInitialSearch, onOpenSongDetails }) => {
+const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, librarySongs, onPlaySong, onAddSongs, showNotification, onNavigate, onPlayAiPlaylist, isGeneratingAiPlaylist, initialSearchQuery, onClearInitialSearch, onOpenSongDetails }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<Song[]>([]);
     const [isLoading, setIsLoading] = useState(false);

@@ -1,3 +1,5 @@
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import type { Song, ProfileData, RadioStation } from '../types.ts';
 import UpNextQueue from './UpNextQueue.tsx';
@@ -104,9 +106,7 @@ interface PlayerOverlayProps {
     isLyricsMinimized: boolean;
     favoriteStations: RadioStation[];
     onToggleFavoriteStation: (station: RadioStation) => void;
-    onViewArtist: (artistName: string) => void;
     isQueueFlashing: boolean;
-    onSharePreview: () => void;
     onExitSimpleMode: () => void;
     visualizerColor?: string | null;
 }
@@ -122,7 +122,7 @@ const formatTime = (seconds: number) => {
 const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
     isVisible, song, isPlaying, progress, duration, onClose, onTogglePlay, onNext, onPrev, onSeek, onSeekStart, onSeekEnd, onSeekBy, onToggleFavorite, playQueue, currentQueueIndex, setPlayQueue, onPlayFromQueue,
     repeatMode, isShuffled, onCycleRepeat, onToggleShuffle, onSetSleepTimer, sleepTimer, profile, onUpdateProfile, onToggleLyrics, onOpenMoodModal, onOpenEqualizer, isLyricsMinimized,
-    favoriteStations, onToggleFavoriteStation, onViewArtist, isQueueFlashing, onSharePreview, onExitSimpleMode, visualizerColor
+    favoriteStations, onToggleFavoriteStation, isQueueFlashing, onExitSimpleMode, visualizerColor
 }) => {
     const [activeModal, setActiveModal] = useState<'sleep' | 'visualizer' | null>(null);
     const tapTimeoutRef = useRef<number | null>(null);
@@ -155,6 +155,7 @@ const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
 
     if (!song || !profile) return null;
 
+    // FIX: Changed onToggleSongFavorite to onToggleFavorite, as suggested by the error.
     if (profile.settings.simpleMode.enabled) {
         return <WisdomCardView song={song} isPlaying={isPlaying} onTogglePlay={onTogglePlay} onNext={onNext} onPrev={onPrev} profile={profile} onUpdateProfile={onUpdateProfile} onExit={onExitSimpleMode} onToggleSongFavorite={onToggleFavorite} />;
     }
@@ -163,11 +164,9 @@ const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
     const isRadioFavorited = isLive && favoriteStations.some(s => s.stationuuid === song.id);
     
     let displayTitle = song.title;
-    let displayArtist = song.artist;
     if (isLive && song.streamTitle) {
         const parts = song.streamTitle.split(' - ');
         if (parts.length > 1) {
-            displayArtist = parts[0].trim();
             displayTitle = parts.slice(1).join(' - ').trim();
         } else {
             displayTitle = song.streamTitle;
