@@ -1,6 +1,5 @@
 declare var process: any;
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { GoogleGenAI } from '@google/genai';
 import { AnimatePresence } from 'framer-motion';
 import HomeView from './HomeView';
 import ReelsView from './ReelsView';
@@ -40,11 +39,11 @@ import RingtoneMakerModal from './RingtoneMakerModal';
 import { MultiStepLoader } from './MultiStepLoader';
 import { useAssistant } from '../hooks/useAssistant';
 import { useAudioFx } from '../hooks/useAudioFx';
-// FIX: Added missing imports for fetchFromJamendo and fetchFromAudius
 import { initDB, getSongs, saveSongs, getPlaylists, savePlaylists, getProfile, saveProfile, getVideos, saveVideos, getReelPlaylists, saveReelPlaylists, getPlayQueue, savePlayQueue, getRadioPlaylists, saveRadioPlaylists, getArtists, saveArtist, fetchRadioAPI, fetchFromJamendo, fetchFromAudius } from './db';
-// FIX: Corrected import path for constants.
-import { navItems, themePairs as themes, fonts, achievements, FAVORITES_PLAYLIST_ID, defaultMoods, getRandomCoverArt } from '../constants.ts';
+import { navItems, themePairs as themes, fonts, achievements, FAVORITES_PLAYLIST_ID, defaultMoods, getRandomCoverArt } from './constants.ts';
 import type { Song, RadioStation, Notification as NotificationType, Playlist, ProfileData, Achievement, Video, ThemeColors, ReelPlaylist, RadioPlaylist, Artist, ThemePair } from '../types';
+// FIX: Import GoogleGenAI to resolve 'Cannot find name' error.
+import { GoogleGenAI } from '@google/genai';
 
 
 const loadingStates = [
@@ -1087,18 +1086,6 @@ const App = () => {
     }
   }, [showNotification, sleepTimer.timeoutId, activeAudio]);
   
-  const ai = useMemo(() => {
-    if (process.env.API_KEY) {
-      try {
-        return new GoogleGenAI({ apiKey: process.env.API_KEY });
-      } catch (e) {
-        console.error("Failed to initialize GoogleGenAI", String(e));
-        return null;
-      }
-    }
-    return null;
-  }, []);
-  
   const createLocalAiPlaylist = useCallback(() => {
         if (!profile || librarySongs.length < 5) {
             showNotification("Not enough music in your library for a local playlist.", 'info');
@@ -1134,12 +1121,16 @@ const App = () => {
     if (!profile) return;
     setIsGeneratingAiPlaylist(true);
 
-    if (!ai || !navigator.onLine) {
+    // FIX: Use process.env.API_KEY as per Gemini API guidelines.
+    const aiApiKey = process.env.API_KEY;
+    if (!aiApiKey || !navigator.onLine) {
         showNotification("AI is offline, creating a local playlist instead.", 'info');
         createLocalAiPlaylist();
         setIsGeneratingAiPlaylist(false);
         return;
     }
+    
+    const ai = new GoogleGenAI({ apiKey: aiApiKey });
 
     try {
       const topSongTitles = profile.analytics.topSongs.slice(0, 5).map(s => `${s.title} by ${s.artist}`).join(', ');
@@ -1183,7 +1174,7 @@ const App = () => {
     } finally {
       setIsGeneratingAiPlaylist(false);
     }
-  }, [profile, showNotification, handlePlaySong, ai, createLocalAiPlaylist]);
+  }, [profile, showNotification, handlePlaySong, createLocalAiPlaylist]);
 
   const handlePlayRadio = useCallback(async (query?: string) => {
     showNotification("Tuning into the airwaves...", 'info');
@@ -1321,7 +1312,6 @@ const App = () => {
           setBackgroundEffect: handleSetBackgroundEffect,
           searchOnlineMusic: handleSearchOnlineMusic,
           playAiPlaylist: handlePlayAiPlaylist,
-// FIX: Pass toggleShuffle and cycleRepeat to the useAssistant controls to resolve type errors.
           toggleShuffle: onToggleShuffle,
           cycleRepeat: onCycleRepeat,
       },
@@ -1669,7 +1659,6 @@ useEffect(() => {
             showNotification("Song deleted from library.", 'success');
         }} onPlayPlaylistRadio={handlePlayPlaylistRadio} recentlyAddedSongId={recentlyAddedSongId} />;
         case 'Reels': return <ReelsView videos={videos} reelPlaylists={reelPlaylists} onUpdate={setVideos} onUpdateReelPlaylists={setReelPlaylists} isLibraryPlaying={isPlaying && !nowPlaying?.isFromReel} onReelActiveChange={handleReelActiveChange} showNotification={showNotification} onToggleNavVisibility={handleToggleNavVisibility} profile={profile!} onUpdateProfile={updateProfile} onPlayReelAsAudio={handlePlayReelAsAudio} nowPlaying={nowPlaying} onOpenAssistant={handleOpenAssistant} isAssistantOnline={isAssistantOnline} onViewReelPlaylist={setReelPlaylistToViewId} initialVideoId={initialReelId} />;
-// FIX: Removed invalid 'onToggleFavorite' prop from RadioView.
         case 'Radio': return <RadioView profile={profile} onPlayStation={handlePlayStation} favoriteStations={profile?.favoriteRadioStations || []} radioPlaylists={radioPlaylists} onUpdateRadioPlaylists={setRadioPlaylists} onNavigate={handleNavigate} />;
         case 'Settings': return <SettingsView profile={profile!} onUpdateProfile={updateProfile} onOpenNeonGlowModal={() => setActiveModal('neon_glow')} onNavigate={handleNavigate} />;
         case 'Create': return <CreateView librarySongs={librarySongs} onUpdateSong={handleUpdateSong} showNotification={showNotification} onGenerate={() => checkAchievements(profile!, 'ai-lyricist', 1)} />;

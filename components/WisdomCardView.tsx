@@ -1,6 +1,3 @@
-
-
-declare var process: any;
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import type { Song, ProfileData } from '../types.ts';
 import { allWisdom } from '../constants.ts';
@@ -77,10 +74,12 @@ const WisdomCardView: React.FC<WisdomCardViewProps> = ({ song, isPlaying, onTogg
                 setIsLoading(false);
             }
         };
-
-        if (navigator.onLine && process.env.API_KEY) {
+        
+        // FIX: Use process.env.API_KEY as per Gemini API guidelines.
+        const apiKey = process.env.API_KEY;
+        if (navigator.onLine && apiKey) {
             if (!aiRef.current) {
-                try { aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY }); } 
+                try { aiRef.current = new GoogleGenAI({ apiKey }); } 
                 catch (e) { console.error("Failed to initialize GoogleGenAI", String(e)); }
             }
             if (aiRef.current) {

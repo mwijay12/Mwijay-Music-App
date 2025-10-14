@@ -1,4 +1,3 @@
-declare var process: any;
 import React, { useState, useMemo } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import type { Song } from '../types.ts';
@@ -76,9 +75,11 @@ const CreateView: React.FC<CreateViewProps> = ({ librarySongs, onUpdateSong, sho
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
 
     const ai = useMemo(() => {
-        if (process.env.API_KEY) {
+        // FIX: Use process.env.API_KEY as per Gemini API guidelines.
+        const apiKey = process.env.API_KEY;
+        if (apiKey) {
             try {
-                return new GoogleGenAI({ apiKey: process.env.API_KEY });
+                return new GoogleGenAI({ apiKey });
             } catch (e) {
                 console.error("Failed to initialize GoogleGenAI", String(e));
                 return null;
