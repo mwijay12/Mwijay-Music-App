@@ -1,8 +1,7 @@
-
-
 import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import type { Song, Playlist } from '../types.ts';
-import { FAVORITES_PLAYLIST_ID, getRandomCoverArt } from './constants.ts';
+// FIX: Corrected import path for constants
+import { FAVORITES_PLAYLIST_ID, getRandomCoverArt } from '../constants.ts';
 import SongDetailsModal from './SongDetailsModal.tsx';
 import SongListItem from './SongListItem.tsx';
 

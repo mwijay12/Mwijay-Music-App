@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import type { ProfileData, Song } from '../types.ts';
-import { equalizerPresets, metronomeSounds } from './constants.ts';
+// FIX: Corrected import path for constants
+import { equalizerPresets, metronomeSounds } from '../constants.ts';
 import { motion } from 'framer-motion';
 
 const Slider: React.FC<{

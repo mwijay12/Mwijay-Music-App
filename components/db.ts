@@ -1,7 +1,7 @@
 
 
-import type { Song, Playlist, ProfileData, Video, ReelPlaylist, RadioPlaylist, RadioStation, Artist, Reminder } from '../types.ts';
-import { user, getRandomCoverArt } from '../constants.ts'; // For default profile
+import type { Song, Playlist, ProfileData, Video, ReelPlaylist, RadioPlaylist, Artist, Reminder } from '../types.ts';
+import { user } from '../constants.ts'; // For default profile
 
 const DB_NAME = 'MwijayMusicDB';
 const DB_VERSION = 20; // Incremented version for schema change

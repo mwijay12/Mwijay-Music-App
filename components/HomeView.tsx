@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Header from './Header.tsx';
 import MwijayAssistantButton from './MwijayAssistantButton.tsx';
 import type { ProfileData, Song } from '../types.ts';

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ProfileData } from '../types.ts';
-import { fonts } from './constants.ts';
+// FIX: Corrected import path for constants
+import { fonts } from '../constants.ts';
 import AnimatedThemeToggler from './AnimatedThemeToggler.tsx';
 import BlurText from './BlurText.tsx';
 

@@ -1,5 +1,6 @@
 
-import { useRef, useCallback, useState } from 'react';
+
+import { useRef, useCallback } from 'react';
 import type { ProfileData } from '../types.ts';
 
 type AudioFxNodes = {
@@ -22,7 +23,6 @@ const EQ_FREQUENCIES = [60, 250, 1000, 4000, 16000];
 
 export const useAudioFx = () => {
     const audioFxRef = useRef<AudioFxNodes | null>(null);
-    const [isInitialized, setIsInitialized] = useState(false);
 
     const initializeAudioFx = useCallback((audioElement: HTMLMediaElement) => {
         if (!audioElement || (audioFxRef.current && audioFxRef.current.sources.has(audioElement))) {
@@ -91,7 +91,6 @@ export const useAudioFx = () => {
                 volume, delay, feedback, lpf, hpf, compressor, analyser,
                 output,
             };
-             setIsInitialized(true);
         }
         
         const source = audioFxRef.current.context.createMediaElementSource(audioElement);

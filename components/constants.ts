@@ -1,4 +1,5 @@
-import type { User, Playlist, Song, Video, RadioCategory, ThemePair, Font, Achievement, ProfileData, NameplateAnimation, RadioStation } from './types.ts';
+
+import type { User, Song, Video, ThemePair, Font, Achievement, NameplateAnimation } from './types.ts';
 
 export const user: User = {
     name: 'Mwijay',
@@ -205,6 +206,7 @@ export const themePairs: ThemePair[] = [
       light: { ...lightThemeBase, ...defaultColors('#00a896', '#06d6a0', '#80ed99') },
       dark: { ...darkThemeBase, '--bg-color': '#013220', ...defaultColors('#06d6a0', '#80ed99', '#a9def9') } },
     
+// FIX: Added missing 'dark' property to Dark and Light theme categories to match the ThemePair type.
     // --- Dark Themes (always dark) ---
     { name: 'Default Dark', category: 'Dark', light: defaultDarkTheme, dark: defaultDarkTheme },
     { name: 'Midnight Blue', category: 'Dark', light: midnightBlueTheme, dark: midnightBlueTheme },

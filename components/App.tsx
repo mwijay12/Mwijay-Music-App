@@ -1,5 +1,3 @@
-
-
 declare var process: any;
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { GoogleGenAI } from '@google/genai';
@@ -43,9 +41,9 @@ import { MultiStepLoader } from './MultiStepLoader';
 import { useAssistant } from './useAssistant';
 import { useAudioFx } from '../hooks/useAudioFx';
 // FIX: Added missing imports for fetchFromJamendo and fetchFromAudius
-import { initDB, getSongs, saveSongs, getPlaylists, savePlaylists, getProfile, saveProfile, getVideos, saveVideos, getReelPlaylists, saveReelPlaylists, getPlayQueue, savePlayQueue, getRadioPlaylists, saveRadioPlaylists, getArtists, saveArtist, fetchRadioAPI, fetchFromJamendo, fetchFromAudius, fetchFromArchive } from './db';
-// FIX: Added missing import for getRandomCoverArt
-import { navItems, themePairs as themes, fonts, achievements, FAVORITES_PLAYLIST_ID, defaultMoods, getRandomCoverArt } from './constants';
+import { initDB, getSongs, saveSongs, getPlaylists, savePlaylists, getProfile, saveProfile, getVideos, saveVideos, getReelPlaylists, saveReelPlaylists, getPlayQueue, savePlayQueue, getRadioPlaylists, saveRadioPlaylists, getArtists, saveArtist, fetchRadioAPI, fetchFromJamendo, fetchFromAudius } from './db';
+// FIX: Corrected import path for constants.
+import { navItems, themePairs as themes, fonts, achievements, FAVORITES_PLAYLIST_ID, defaultMoods, getRandomCoverArt } from '../constants.ts';
 import type { Song, RadioStation, Notification as NotificationType, Playlist, ProfileData, Achievement, Video, ThemeColors, ReelPlaylist, RadioPlaylist, Artist, ThemePair } from '../types';
 
 
@@ -1671,7 +1669,8 @@ useEffect(() => {
             showNotification("Song deleted from library.", 'success');
         }} onPlayPlaylistRadio={handlePlayPlaylistRadio} recentlyAddedSongId={recentlyAddedSongId} />;
         case 'Reels': return <ReelsView videos={videos} reelPlaylists={reelPlaylists} onUpdate={setVideos} onUpdateReelPlaylists={setReelPlaylists} isLibraryPlaying={isPlaying && !nowPlaying?.isFromReel} onReelActiveChange={handleReelActiveChange} showNotification={showNotification} onToggleNavVisibility={handleToggleNavVisibility} profile={profile!} onUpdateProfile={updateProfile} onPlayReelAsAudio={handlePlayReelAsAudio} nowPlaying={nowPlaying} onOpenAssistant={handleOpenAssistant} isAssistantOnline={isAssistantOnline} onViewReelPlaylist={setReelPlaylistToViewId} initialVideoId={initialReelId} />;
-        case 'Radio': return <RadioView profile={profile} onPlayStation={handlePlayStation} favoriteStations={profile?.favoriteRadioStations || []} onToggleFavorite={(station) => updateProfile(p => ({ ...p, favoriteRadioStations: (p.favoriteRadioStations || []).some(s => s.stationuuid === station.stationuuid) ? (p.favoriteRadioStations || []).filter(s => s.stationuuid !== station.stationuuid) : [...(p.favoriteRadioStations || []), station] }))} radioPlaylists={radioPlaylists} onUpdateRadioPlaylists={setRadioPlaylists} onNavigate={handleNavigate} />;
+// FIX: Removed invalid 'onToggleFavorite' prop from RadioView.
+        case 'Radio': return <RadioView profile={profile} onPlayStation={handlePlayStation} favoriteStations={profile?.favoriteRadioStations || []} radioPlaylists={radioPlaylists} onUpdateRadioPlaylists={setRadioPlaylists} onNavigate={handleNavigate} />;
         case 'Settings': return <SettingsView profile={profile!} onUpdateProfile={updateProfile} onOpenNeonGlowModal={() => setActiveModal('neon_glow')} onNavigate={handleNavigate} />;
         case 'Create': return <CreateView librarySongs={librarySongs} onUpdateSong={handleUpdateSong} showNotification={showNotification} onGenerate={() => checkAchievements(profile!, 'ai-lyricist', 1)} />;
         case 'Profile': return <ProfileView profile={profile!} onUpdateProfile={updateProfile} onOpenAppearance={() => handleNavigate('Appearance')} onBack={handleBack} onNavigate={handleNavigate} />;

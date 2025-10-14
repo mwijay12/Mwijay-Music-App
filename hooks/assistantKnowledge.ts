@@ -1,4 +1,5 @@
-import type { Song, RadioStation, ProfileData } from '../types.ts';
+
+import type { Song, ProfileData } from '../types.ts';
 import { fonts, achievements } from '../constants.ts';
 
 // --- Type definitions for the knowledge base ---
@@ -85,29 +86,6 @@ const commandAliases: Record<string, string> = {
     "repeat": "cycle repeat",
 };
 
-const findSongByTitle = (title: string, songs: Song[]): Song | null => {
-    if (!title) return null;
-    const searchTerm = title.toLowerCase();
-    
-    // Exact match first
-    let song = songs.find(s => s.title.toLowerCase() === searchTerm);
-    if (song) return song;
-
-    // "Starts with" match
-    song = songs.find(s => s.title.toLowerCase().startsWith(searchTerm));
-    if (song) return song;
-
-    // "Includes" match
-    song = songs.find(s => s.title.toLowerCase().includes(searchTerm));
-    if (song) return song;
-
-    // Check artist as well
-    song = songs.find(s => s.artist.toLowerCase().includes(searchTerm));
-    if (song) return song;
-
-    return null;
-}
-
 const findCommandMatch = (command: string): string | null => {
     const normalizedCommand = command.toLowerCase().trim();
     
@@ -190,12 +168,12 @@ export const assistantKnowledge: {
             controls.playRadio(query || undefined);
             return query ? `Tuning into radio stations matching "${query}"...` : 'Playing a popular radio station for you.';
         },
-        "play song": ({ controls, appState, command }) => {
+        "play song": ({ controls, command }) => {
             const songTitle = command.replace('play', '').trim();
             controls.playSongFromLibrary(songTitle);
             return `Searching your library for "${songTitle}"...`;
         },
-        "add to queue": ({ controls, appState, command }) => {
+        "add to queue": ({ controls, command }) => {
             const songTitle = command.replace('add', '').replace('to queue', '').trim();
             controls.addToQueue(songTitle);
             return `Okay, I'll add "${songTitle}" to the queue.`;
@@ -276,7 +254,7 @@ export const assistantKnowledge: {
 
         // --- Features ---
         "ai playlist": () => 'Creating AI playlists requires an internet connection. Please switch to Online Mode in the assistant.',
-        "search online": ({ command, controls }) => {
+        "search online": ({ command, controls: _controls }) => {
              const query = command.replace('search online for', '').trim();
             if (query) {
                  return 'Online search requires an internet connection. Please switch to Online Mode.';

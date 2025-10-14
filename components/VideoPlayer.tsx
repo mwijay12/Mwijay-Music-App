@@ -39,6 +39,7 @@ const AssistantAwarenessChip = ({ isOnline, onClick, isVisible }: { isOnline: bo
 interface VideoPlayerProps {
   video: Video;
   onUpdate: (video: Video) => void;
+  isLibraryPlaying: boolean;
   onReelActiveChange: (isActive: boolean) => void;
   onToggleNavVisibility: (isHidden: boolean) => void;
   onPlayAsAudio: (video: Video) => void;
@@ -59,7 +60,7 @@ const formatTime = (seconds: number) => {
 };
 
 
-const VideoPlayer = ({ video, onUpdate, onReelActiveChange, onToggleNavVisibility, onPlayAsAudio, nowPlaying, onUpdateProfile, profile, onPlaybackComplete, onOpenAssistant, isAssistantOnline }: VideoPlayerProps) => {
+const VideoPlayer = ({ video, onUpdate, isLibraryPlaying, onReelActiveChange, onToggleNavVisibility, onPlayAsAudio, nowPlaying, onUpdateProfile, profile, onPlaybackComplete, onOpenAssistant, isAssistantOnline }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const uiHideTimeout = useRef<number | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -164,7 +165,9 @@ const VideoPlayer = ({ video, onUpdate, onReelActiveChange, onToggleNavVisibilit
             ([entry]) => {
                 if (entry.isIntersecting) {
                     loopCount.current = 0;
-                    videoEl.play().catch(() => {});
+                    if (!isLibraryPlaying) {
+                        videoEl.play().catch(() => {});
+                    }
                     resetUiTimeout();
                 } else {
                     videoEl.pause();
@@ -181,7 +184,7 @@ const VideoPlayer = ({ video, onUpdate, onReelActiveChange, onToggleNavVisibilit
             videoEl.removeEventListener('pause', handlePause);
             onReelActiveChange(false);
         };
-  }, [onReelActiveChange, resetUiTimeout]);
+  }, [onReelActiveChange, resetUiTimeout, isLibraryPlaying]);
 
   const handleTogglePlay = useCallback(() => {
     const videoEl = videoRef.current;

@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useRef, useEffect } from 'react';
 import type { Song, ProfileData, RadioStation } from '../types.ts';
 import UpNextQueue from './UpNextQueue.tsx';
@@ -368,7 +364,8 @@ const PlayerOverlay = ({
                        {isLyricsMinimized && song.lyrics ? (
                            <MinimizedLyricsView song={song} profile={profile} onExpand={handleExpandLyrics} />
                        ) : (
-                           <UpNextQueue queue={playQueue} currentQueueIndex={currentQueueIndex} setPlayQueue={setPlayQueue} onPlayFromQueue={onPlayFromQueue} isFlashing={isQueueFlashing} />
+// FIX: Removed invalid 'setPlayQueue' prop from UpNextQueue component.
+                           <UpNextQueue queue={playQueue} currentQueueIndex={currentQueueIndex} onPlayFromQueue={onPlayFromQueue} isFlashing={isQueueFlashing} />
                        )}
                     </div>
 

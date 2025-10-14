@@ -1,33 +1,16 @@
 
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import type { Song } from '../types.ts';
 
 interface UpNextQueueProps {
     queue: Song[];
     currentQueueIndex: number;
-    setPlayQueue: React.Dispatch<React.SetStateAction<Song[]>>;
     onPlayFromQueue: (song: Song) => void;
     isFlashing?: boolean;
 }
 
-const UpNextQueue = ({ queue, currentQueueIndex, setPlayQueue, onPlayFromQueue, isFlashing }: UpNextQueueProps) => {
-    const [draggedItem, setDraggedItem] = useState<Song | null>(null);
-    const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
-    const sortMenuRef = useRef<HTMLDivElement>(null);
+const UpNextQueue = ({ queue, currentQueueIndex, onPlayFromQueue, isFlashing }: UpNextQueueProps) => {
     const currentItemRef = useRef<HTMLLIElement>(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
-                setIsSortMenuOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, []);
 
     useEffect(() => {
         if (currentItemRef.current) {

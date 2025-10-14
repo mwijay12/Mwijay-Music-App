@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import type { RadioStation, RadioPlaylist, ProfileData } from '../types.ts';
 import RadioStationList from './RadioStationList.tsx';
@@ -10,252 +6,168 @@ import RadioLoader from './RadioLoader.tsx';
 import { fetchRadioAPI } from './db.ts';
 import { getRandomCoverArt } from '../constants.ts';
 
-const CosmicSearchBar = ({ value, onChange, onSearch }: { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; onSearch: (term: string) => void }) => {
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            onSearch(value);
-        }
-    };
+// --- Sub-components for RadioView ---
+
+const CosmicSearchBar: React.FC<{
+    value: string;
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onSearch: () => void;
+}> = ({ value, onChange, onSearch }) => {
     return (
-     <div className="relative mb-4">
-        <input
-            type="text"
-            placeholder="Search stations, countries, genres..."
-            value={value}
-            onChange={onChange}
-            onKeyDown={handleKeyDown}
-            className="w-full bg-[var(--surface-color)] rounded-full py-2.5 pl-12 pr-6 text-white placeholder-neutral-400 border-2 border-transparent focus:outline-none cosmic-search"
-        />
-        <i className="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-neutral-400"></i>
-    </div>
+        <div className="relative">
+            <input
+                type="text"
+                value={value}
+                onChange={onChange}
+                onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+                placeholder="Search stations, genres, countries..."
+                className="w-full bg-white/10 rounded-full py-3 pl-12 pr-4 text-white placeholder-neutral-400 border-2 border-transparent focus:outline-none cosmic-search"
+            />
+            <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400"></i>
+        </div>
     );
 };
 
-const HubCard = ({ title, icon, onClick, isManagement = false }: { title: string, icon: string, onClick: () => void, isManagement?: boolean }) => (
-    <button onClick={onClick} className={`bg-[var(--surface-color)] p-4 rounded-xl flex items-center justify-center gap-4 text-left transition-transform hover:scale-105 w-full ${isManagement ? 'bg-gradient-to-r from-[var(--secondary-accent-start)]/30 to-[var(--secondary-accent-end)]/30' : ''}`} title={`Browse ${title}`}>
-        <i className={`fas ${icon} text-2xl text-[var(--primary-accent)] w-8 text-center`}></i>
-        <div className="flex-1">
-            <p className="font-bold text-lg">{title}</p>
-        </div>
-        <i className="fas fa-chevron-right text-neutral-500"></i>
+const TabButton: React.FC<{
+    label: string;
+    icon: string;
+    isActive: boolean;
+    onClick: () => void;
+}> = ({ label, icon, isActive, onClick }) => (
+    <button
+        onClick={onClick}
+        className={`flex-1 flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${isActive ? 'bg-[var(--primary-accent)]/20' : 'hover:bg-white/10'}`}
+    >
+        <i className={`fas ${icon} text-xl ${isActive ? 'text-[var(--primary-accent)]' : 'text-neutral-300'}`}></i>
+        <span className={`text-xs font-bold ${isActive ? 'text-white' : 'text-neutral-400'}`}>{label}</span>
     </button>
 );
 
-const HorizontalStationScroller = ({ title, stations, onPlayStation }: {title: string, stations: RadioStation[], onPlayStation: (station: RadioStation) => void}) => {
-    if (!stations || stations.length === 0) return null;
 
-    return (
-        <section className="mb-6">
-            <h2 className="text-xl font-bold mb-4">{title}</h2>
-            <div className="flex overflow-x-auto gap-4 scroll-container -mx-4 px-4 pb-2">
-                {stations.map(station => (
-                    <button key={station.stationuuid} onClick={() => onPlayStation(station)} className="flex-shrink-0 w-32 text-left group" title={`Play ${station.name}`}>
-                        <img src={station.favicon || getRandomCoverArt()} alt={station.name} className="w-32 h-32 rounded-lg bg-[var(--chip-bg)] object-cover mb-2 transition-transform group-hover:scale-105" onError={(e) => { e.currentTarget.src = getRandomCoverArt(); }}/>
-                        <p className="text-sm font-bold truncate">{station.name}</p>
-                        <p className="text-xs text-neutral-300 truncate">{station.country}</p>
-                    </button>
-                ))}
-            </div>
-        </section>
-    );
-};
+// --- Main RadioView Component ---
 
 interface RadioViewProps {
     profile: ProfileData | null;
     onPlayStation: (station: RadioStation) => void;
     favoriteStations: RadioStation[];
-    onToggleFavorite: (station: RadioStation) => void;
     radioPlaylists: RadioPlaylist[];
     onUpdateRadioPlaylists: (playlists: RadioPlaylist[]) => void;
     onNavigate: (view: string) => void;
 }
 
-const RadioView = ({ profile, onPlayStation, favoriteStations, onToggleFavorite, radioPlaylists, onUpdateRadioPlaylists, onNavigate }: RadioViewProps) => {
-    const [view, setView] = useState<'hub' | 'station_list' | 'playlists'>('hub');
-    const [stationList, setStationList] = useState<RadioStation[]>([]);
-    const [listTitle, setListTitle] = useState('');
+const RadioView: React.FC<RadioViewProps> = ({ profile, onPlayStation, favoriteStations, radioPlaylists, onUpdateRadioPlaylists, onNavigate }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [searchResults, setSearchResults] = useState<RadioStation[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [isCreatePlaylistOpen, setCreatePlaylistOpen] = useState(false);
-    const [topStations, setTopStations] = useState<RadioStation[]>([]);
+    const [activeTab, setActiveTab] = useState<'favorites' | 'playlists' | 'genres' | 'regions'>('favorites');
+    const [isCreateModalOpen, setCreateModalOpen] = useState(false);
 
-    const fetchHubData = useCallback(async () => {
+    const handleSearch = useCallback(async () => {
+        if (!searchTerm.trim()) {
+            setSearchResults([]);
+            return;
+        }
         setIsLoading(true);
         setError(null);
         try {
-            const top = await fetchRadioAPI('/stations/search?limit=20&order=clickcount&reverse=true&hidebroken=true');
-            setTopStations(top);
+            const stations = await fetchRadioAPI(`/stations/search?name=${encodeURIComponent(searchTerm)}&limit=50&order=clickcount&reverse=true&hidebroken=true`);
+            setSearchResults(stations);
         } catch (err) {
-            setError("Could not fetch top stations. Please check your connection.");
+            setError('Failed to fetch radio stations. Please check your connection.');
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
-    }, []);
+    }, [searchTerm]);
 
-    useEffect(() => {
-        fetchHubData();
-        const timer = setTimeout(() => {
-            setIsInitialLoading(false);
-        }, 3500); // Guarantees loader shows for 3.5s
-        return () => clearTimeout(timer);
-    }, [fetchHubData]);
-    
-    const executeSearch = async (term: string) => {
-        if (term.length < 2) return;
-        setIsLoading(true);
-        setError(null);
-        try {
-            const results = await fetchRadioAPI(`/stations/search?name=${encodeURIComponent(term)}&limit=100&hidebroken=true`);
-            setStationList(results);
-            setListTitle(`Search: "${term}"`);
-            setView('station_list');
-        } catch (err) {
-            setError("Search failed. The radio API might be down.");
-        }
-        setIsLoading(false);
+    const handleCreatePlaylist = (playlist: RadioPlaylist) => {
+        onUpdateRadioPlaylists([...radioPlaylists, playlist]);
+        setCreateModalOpen(false);
     };
-
-    const handleListItemClick = async (item: { name: string }, type: 'genre' | 'region') => {
-        setIsLoading(true);
-        setError(null);
-        // FIX: Correctly use `bycountryexact` for regions and `bytag` for genres.
-        const path = type === 'genre'
-            ? `/stations/bytag/${encodeURIComponent(item.name)}?limit=200&hidebroken=true`
-            : `/stations/bycountryexact/${encodeURIComponent(item.name)}?limit=200&hidebroken=true`;
-        
-        try {
-            const data = await fetchRadioAPI(path);
-            setStationList(data);
-            setListTitle(item.name);
-            setView('station_list');
-        } catch (err) {
-            setError(`Could not load stations for ${item.name}.`);
-        }
-        setIsLoading(false);
-    };
-
-    const renderHub = () => (
-        <div className="overflow-y-auto scroll-container h-full">
-            <HorizontalStationScroller title="Top Stations" stations={topStations} onPlayStation={onPlayStation} />
-            
-            {(profile?.favoriteRadioGenres?.length ?? 0) > 0 && (
-                <section className="mb-6">
-                    <h2 className="text-xl font-bold mb-4">Your Genres</h2>
-                    <div className="flex overflow-x-auto gap-2 scroll-container -mx-4 px-4 pb-2">
-                        {profile?.favoriteRadioGenres?.map(genre => (
-                            <button key={genre} onClick={() => handleListItemClick({ name: genre }, 'genre')} className="flex-shrink-0 text-sm font-bold px-4 py-3 rounded-full bg-[var(--chip-bg)] capitalize">{genre}</button>
-                        ))}
-                    </div>
-                </section>
-            )}
-            
-            {(profile?.favoriteRadioRegions?.length ?? 0) > 0 && (
-                 <section className="mb-6">
-                    <h2 className="text-xl font-bold mb-4">Your Regions</h2>
-                     <div className="flex overflow-x-auto gap-2 scroll-container -mx-4 px-4 pb-2">
-                        {profile?.favoriteRadioRegions?.map(region => (
-                            <button key={region} onClick={() => handleListItemClick({ name: region }, 'region')} className="flex-shrink-0 text-sm font-bold px-4 py-3 rounded-full bg-[var(--chip-bg)]">{region}</button>
-                        ))}
-                    </div>
-                </section>
-            )}
-            
-            <HorizontalStationScroller title="Recently Played" stations={profile?.recentlyPlayedRadios || []} onPlayStation={onPlayStation} />
-            
-            <div className="space-y-4">
-                <HubCard title="Favorites" icon="fa-heart" onClick={() => { setListTitle('Favorites'); setStationList(favoriteStations); setView('station_list'); }} />
-                <HubCard title="Playlists" icon="fa-list-music" onClick={() => setView('playlists')} />
-                <HubCard title="Manage Hub" icon="fa-sliders-h" onClick={() => onNavigate('ManageRadioHub')} isManagement />
-            </div>
-        </div>
-    );
 
     const renderContent = () => {
-        if (isInitialLoading || isLoading) {
-            return <div className="flex-1 flex items-center justify-center"><RadioLoader /></div>;
+        if (isLoading) return <RadioLoader />;
+        
+        if (searchTerm) {
+            return <RadioStationList stations={searchResults} onPlayStation={onPlayStation} error={error} />;
         }
-        if (error) {
-            return (
-                <div className="flex-1 flex flex-col items-center justify-center text-center text-red-400 p-4">
-                    <i className="fas fa-tower-broadcast text-4xl mb-4 opacity-50"></i>
-                    <p className="font-bold mb-2">{error}</p>
-                    <p className="text-sm text-neutral-500 mb-6">This can happen if you're offline or if the radio servers are temporarily down.</p>
-                    <button onClick={fetchHubData} className="bg-[var(--primary-accent)] text-black font-bold py-2 px-6 rounded-full">
-                        <i className="fas fa-sync-alt mr-2"></i> Retry
-                    </button>
-                </div>
-            );
-        }
-
-        switch(view) {
-            case 'hub': return renderHub();
+        
+        switch(activeTab) {
+            case 'favorites':
+                return <RadioStationList stations={favoriteStations} onPlayStation={onPlayStation} error={null} />;
             case 'playlists':
-                 return (
-                     <div className="flex flex-col h-full">
-                         <header className="flex items-center justify-between gap-4 mb-4">
-                            <div className="flex items-center gap-4">
-                                <button onClick={() => setView('hub')} className="text-2xl" aria-label="Back to Hub" title="Back to Hub"><i className="fas fa-arrow-left"></i></button>
-                                <h1 className="text-2xl font-bold">Radio Playlists</h1>
-                            </div>
-                            <button onClick={() => setCreatePlaylistOpen(true)} className="bg-[var(--primary-accent)] text-black rounded-full w-10 h-10 flex items-center justify-center" title="Create new radio playlist">
-                                <i className="fas fa-plus"></i>
-                            </button>
-                         </header>
-                         <div className="flex-1 overflow-y-auto scroll-container -mr-4 pr-4">
-                            {radioPlaylists.length > 0 ? radioPlaylists.map(pl => (
-                                <div key={pl.id} className="p-4 rounded-lg bg-[var(--surface-color)] mb-3">
-                                    <h3 className="font-bold">{pl.name}</h3>
-                                    <p className="text-xs text-neutral-400">{pl.stationIds.length} stations</p>
-                                </div>
-                            )) : <p className="text-center text-neutral-400 pt-8">No radio playlists yet.</p>}
-                         </div>
-                     </div>
-                 );
-
-            case 'station_list':
                 return (
-                    <div className="flex flex-col h-full">
-                         <header className="flex items-center gap-4 mb-4">
-                             <button onClick={() => { setSearchTerm(''); setView('hub'); }} className="text-2xl" aria-label="Back to Hub" title="Back to Hub"><i className="fas fa-arrow-left"></i></button>
-                            <div className="min-w-0">
-                                <h1 className="text-2xl font-bold truncate capitalize">{listTitle}</h1>
-                                <p className="text-sm text-neutral-400">{stationList.length} stations found</p>
-                            </div>
-                         </header>
-                         <div className="flex-1 overflow-y-auto scroll-container -mr-4 pr-4">
-                            <RadioStationList stations={stationList} onPlayStation={onPlayStation} error={null} />
-                         </div>
+                    <div>
+                        <button onClick={() => setCreateModalOpen(true)} className="w-full text-left bg-[var(--surface-color)] p-4 rounded-lg flex items-center gap-4 mb-4" title="Create New Playlist">
+                             <div className="w-16 h-16 bg-[var(--primary-accent)]/20 rounded flex-shrink-0 flex items-center justify-center"><i className="fas fa-plus text-2xl text-[var(--primary-accent)]"></i></div>
+                             <p className="font-bold">Create New Playlist</p>
+                        </button>
+                        {radioPlaylists.map(pl => {
+                            const stations = pl.stationIds.map(id => favoriteStations.find(s => s.stationuuid === id)).filter((s): s is RadioStation => !!s);
+                            const cover = stations[0]?.favicon || getRandomCoverArt();
+                            return (
+                                 <button key={pl.id} onClick={() => onPlayStation(stations[0])} disabled={stations.length === 0} className="w-full flex items-center gap-4 bg-[var(--surface-color)] p-2 rounded-lg mb-2 text-left disabled:opacity-50">
+                                    <img src={cover} alt={pl.name} className="w-16 h-16 bg-black rounded object-cover flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-bold truncate">{pl.name}</p>
+                                        <p className="text-xs text-neutral-400">{pl.stationIds.length} stations</p>
+                                    </div>
+                                </button>
+                            )
+                        })}
                     </div>
                 );
+            case 'genres':
+            case 'regions':
+                 return (
+                    <div className="grid grid-cols-2 gap-4">
+                        {(activeTab === 'genres' ? profile?.favoriteRadioGenres : profile?.favoriteRadioRegions)?.map(item => (
+                            <button key={item} onClick={() => setSearchTerm(item)} className="bg-[var(--surface-color)] p-4 rounded-lg font-bold capitalize transition-transform hover:scale-105">
+                                {item}
+                            </button>
+                        ))}
+                         <button onClick={() => onNavigate('ManageRadioHub')} className="bg-[var(--chip-bg)] p-4 rounded-lg font-bold flex flex-col items-center justify-center gap-2 text-[var(--primary-accent)]">
+                           <i className="fas fa-edit text-xl"></i>
+                           <span>Manage Hub</span>
+                        </button>
+                    </div>
+                );
+            default:
+                return null;
         }
     };
-    
+
     return (
         <>
-            <main className="h-full w-full flex flex-col p-4 pb-40 home-gradient-bg">
-                {view === 'hub' && (
-                    <>
-                        <header className="flex justify-between items-center mb-4">
-                            <div>
-                                <h1 className="text-2xl font-bold">Live Radio</h1>
-                                <p className="text-sm text-neutral-400">Powered by Mwijay Music</p>
-                            </div>
-                        </header>
-                        <CosmicSearchBar value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onSearch={executeSearch} />
-                    </>
-                )}
-                <div className="flex-1 overflow-hidden flex flex-col">
-                    {renderContent()}
-                </div>
-            </main>
-            {isCreatePlaylistOpen && (
-                <CreateRadioPlaylistModal
-                    favoriteStations={favoriteStations}
-                    onSave={(playlist) => { onUpdateRadioPlaylists([...radioPlaylists, playlist]); setCreatePlaylistOpen(false); }}
-                    onClose={() => setCreatePlaylistOpen(false)}
-                />
-            )}
+        <main className="h-full w-full overflow-y-auto scroll-container p-6 pb-40 home-gradient-bg">
+            <header className="mb-8">
+                <h1 className="text-3xl font-bold">Live Radio</h1>
+                <p className="text-neutral-400">Discover stations from around the world</p>
+            </header>
+
+            <div className="sticky top-0 bg-[var(--bg-color)]/80 backdrop-blur-md z-10 py-4 -mx-6 px-6">
+                 <CosmicSearchBar value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onSearch={handleSearch} />
+                 {!searchTerm && (
+                      <div className="flex justify-around items-center gap-2 mt-4 bg-[var(--surface-color)] p-2 rounded-xl">
+                        <TabButton label="Favorites" icon="fa-heart" isActive={activeTab === 'favorites'} onClick={() => setActiveTab('favorites')} />
+                        <TabButton label="Playlists" icon="fa-list-music" isActive={activeTab === 'playlists'} onClick={() => setActiveTab('playlists')} />
+                        <TabButton label="Genres" icon="fa-guitar" isActive={activeTab === 'genres'} onClick={() => setActiveTab('genres')} />
+                        <TabButton label="Regions" icon="fa-globe" isActive={activeTab === 'regions'} onClick={() => setActiveTab('regions')} />
+                    </div>
+                 )}
+            </div>
+            
+            <div className="mt-6">
+                {renderContent()}
+            </div>
+        </main>
+        {isCreateModalOpen && (
+            <CreateRadioPlaylistModal 
+                favoriteStations={favoriteStations} 
+                onSave={handleCreatePlaylist}
+                onClose={() => setCreateModalOpen(false)}
+            />
+        )}
         </>
     );
 };

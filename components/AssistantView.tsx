@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { ChatMessage, ProfileData } from '../types.ts';
 import TypingIndicator from './TypingIndicator.tsx';
 import TextGenerateEffect from './TextGenerateEffect.tsx';
-import { assistantPrompts } from './constants.ts';
+// FIX: Corrected import path for constants
+import { assistantPrompts } from '../constants.ts';
 
 declare const webkitSpeechRecognition: any;
 
