@@ -1,3 +1,4 @@
+declare var process: any;
 import React, { useState, useMemo } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import type { Song } from '../types.ts';
