@@ -412,7 +412,7 @@ ${systemContext}
                                 controls.playPrev();
                                 confirmationText = "Going back to the previous track.";
                                 break;
-                            // FIX: Add missing switch cases
+                            // FIX: Add missing switch cases for shuffle and repeat.
                             case 'toggleShuffle':
                                 controls.toggleShuffle();
                                 confirmationText = "Toggled shuffle mode.";

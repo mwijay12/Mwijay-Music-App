@@ -1,3 +1,5 @@
+
+declare var process: any;
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import type { Song, ProfileData } from '../types.ts';
 import { allWisdom } from '../constants.ts';
@@ -16,7 +18,7 @@ interface WisdomCardViewProps {
     profile: ProfileData;
     onUpdateProfile: (updater: (prev: ProfileData) => ProfileData) => void;
     onExit: () => void;
-    onToggleSongFavorite: (songId: string) => void;
+    onToggleSongFavorite: () => void;
 }
 
 const WisdomCardView: React.FC<WisdomCardViewProps> = ({ song, isPlaying, onTogglePlay, onNext, onPrev, profile, onUpdateProfile, onExit, onToggleSongFavorite }) => {
@@ -87,7 +89,7 @@ const WisdomCardView: React.FC<WisdomCardViewProps> = ({ song, isPlaying, onTogg
 
                     const response = await aiRef.current.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
                     if (!isMounted.current) return;
-                    const newWisdom = response.text.trim().replace(/^"|"$/g, '');
+                    const newWisdom = (response.text || '').trim().replace(/^"|"$/g, '');
                     if (newWisdom) {
                         setWisdomText(newWisdom);
                         wisdomCache.set(cacheKey, { wisdom: newWisdom, timestamp: Date.now() });
@@ -120,7 +122,7 @@ const WisdomCardView: React.FC<WisdomCardViewProps> = ({ song, isPlaying, onTogg
         e.stopPropagation();
         setIsHeartBeating(true);
         setTimeout(() => setIsHeartBeating(false), 500);
-        onToggleSongFavorite(song.id);
+        onToggleSongFavorite();
     };
     
     useEffect(() => { setIsWisdomLiked((profile.likedWisdoms || []).includes(wisdomText)); }, [wisdomText, profile.likedWisdoms]);
@@ -208,7 +210,7 @@ const WisdomCardView: React.FC<WisdomCardViewProps> = ({ song, isPlaying, onTogg
                              <img src={song.albumArtUrl} alt={song.title} className="w-full h-full object-cover" />
                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-6">
                                 <p className="text-sm font-semibold text-white/80 uppercase tracking-widest">{song.artist}</p>
-                                <div ref={titleContainerRef} className={`marquee-container ${isTitleOverflowing ? 'is-overflowing' : ''}`}>
+                                <div ref={titleContainerRef} className={`marquee-container ${isNameOverflowing ? 'is-overflowing' : ''}`}>
                                     <h2 ref={titleRef} className="marquee-content text-5xl font-extrabold text-white leading-tight" title={song.title}>{song.title}</h2>
                                 </div>
                             </div>

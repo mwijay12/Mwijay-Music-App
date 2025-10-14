@@ -1,4 +1,5 @@
 
+
 declare var process: any;
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { GoogleGenAI } from '@google/genai';
@@ -42,7 +43,7 @@ import { MultiStepLoader } from './MultiStepLoader';
 import { useAssistant } from './useAssistant';
 import { useAudioFx } from '../hooks/useAudioFx';
 // FIX: Added missing imports for fetchFromJamendo and fetchFromAudius
-import { initDB, getSongs, saveSongs, getPlaylists, savePlaylists, getProfile, saveProfile, getVideos, saveVideos, getReelPlaylists, saveReelPlaylists, getPlayQueue, savePlayQueue, getRadioPlaylists, saveRadioPlaylists, getArtists, saveArtist, fetchRadioAPI, fetchFromJamendo, fetchFromAudius } from './db';
+import { initDB, getSongs, saveSongs, getPlaylists, savePlaylists, getProfile, saveProfile, getVideos, saveVideos, getReelPlaylists, saveReelPlaylists, getPlayQueue, savePlayQueue, getRadioPlaylists, saveRadioPlaylists, getArtists, saveArtist, fetchRadioAPI, fetchFromJamendo, fetchFromAudius, fetchFromArchive } from './db';
 // FIX: Added missing import for getRandomCoverArt
 import { navItems, themePairs as themes, fonts, achievements, FAVORITES_PLAYLIST_ID, defaultMoods, getRandomCoverArt } from './constants';
 import type { Song, RadioStation, Notification as NotificationType, Playlist, ProfileData, Achievement, Video, ThemeColors, ReelPlaylist, RadioPlaylist, Artist, ThemePair } from '../types';
@@ -1322,6 +1323,7 @@ const App = () => {
           setBackgroundEffect: handleSetBackgroundEffect,
           searchOnlineMusic: handleSearchOnlineMusic,
           playAiPlaylist: handlePlayAiPlaylist,
+// FIX: Pass toggleShuffle and cycleRepeat to the useAssistant controls to resolve type errors.
           toggleShuffle: onToggleShuffle,
           cycleRepeat: onCycleRepeat,
       },
@@ -1669,16 +1671,16 @@ useEffect(() => {
             showNotification("Song deleted from library.", 'success');
         }} onPlayPlaylistRadio={handlePlayPlaylistRadio} recentlyAddedSongId={recentlyAddedSongId} />;
         case 'Reels': return <ReelsView videos={videos} reelPlaylists={reelPlaylists} onUpdate={setVideos} onUpdateReelPlaylists={setReelPlaylists} isLibraryPlaying={isPlaying && !nowPlaying?.isFromReel} onReelActiveChange={handleReelActiveChange} showNotification={showNotification} onToggleNavVisibility={handleToggleNavVisibility} profile={profile!} onUpdateProfile={updateProfile} onPlayReelAsAudio={handlePlayReelAsAudio} nowPlaying={nowPlaying} onOpenAssistant={handleOpenAssistant} isAssistantOnline={isAssistantOnline} onViewReelPlaylist={setReelPlaylistToViewId} initialVideoId={initialReelId} />;
-        case 'Radio': return <RadioView profile={profile} onPlayStation={handlePlayStation} favoriteStations={profile?.favoriteRadioStations || []} onToggleFavorite={(station) => updateProfile(p => ({ ...p, favoriteRadioStations: (p.favoriteRadioStations || []).some(s => s.stationuuid === station.stationuuid) ? (p.favoriteRadioStations || []).filter(s => s.stationuuid !== station.stationuuid) : [...(p.favoriteRadioStations || []), station] }))} radioPlaylists={radioPlaylists} onUpdateRadioPlaylists={setRadioPlaylists} showNotification={showNotification} onNavigate={handleNavigate} />;
+        case 'Radio': return <RadioView profile={profile} onPlayStation={handlePlayStation} favoriteStations={profile?.favoriteRadioStations || []} onToggleFavorite={(station) => updateProfile(p => ({ ...p, favoriteRadioStations: (p.favoriteRadioStations || []).some(s => s.stationuuid === station.stationuuid) ? (p.favoriteRadioStations || []).filter(s => s.stationuuid !== station.stationuuid) : [...(p.favoriteRadioStations || []), station] }))} radioPlaylists={radioPlaylists} onUpdateRadioPlaylists={setRadioPlaylists} onNavigate={handleNavigate} />;
         case 'Settings': return <SettingsView profile={profile!} onUpdateProfile={updateProfile} onOpenNeonGlowModal={() => setActiveModal('neon_glow')} onNavigate={handleNavigate} />;
         case 'Create': return <CreateView librarySongs={librarySongs} onUpdateSong={handleUpdateSong} showNotification={showNotification} onGenerate={() => checkAchievements(profile!, 'ai-lyricist', 1)} />;
-        case 'Profile': return <ProfileView profile={profile!} onUpdateProfile={updateProfile} onOpenAppearance={() => handleNavigate('Appearance')} onBack={handleBack} onPlayTopSong={({ id }) => { const song = librarySongs.find(s => s.id === id); if (song) handlePlaySong(song, librarySongs); }} onNavigate={handleNavigate} />;
+        case 'Profile': return <ProfileView profile={profile!} onUpdateProfile={updateProfile} onOpenAppearance={() => handleNavigate('Appearance')} onBack={handleBack} onNavigate={handleNavigate} />;
         case 'Analytics': return <AnalyticsView profile={profile!} onBack={handleBack} />;
         case 'Help': return <HelpView onBack={handleBack} />;
         case 'AssistantSettings': return <AssistantSettingsView onBack={handleBack} profile={profile!} onUpdateProfile={updateProfile} />;
         case 'CustomizeParticles': return <CustomizeParticlesView profile={profile!} onUpdateProfile={updateProfile} onBack={handleBack} />;
         case 'ManageRadioHub': return <ManageRadioHubView profile={profile!} onUpdateProfile={updateProfile} onBack={handleBack} />;
-        case 'Explore': return <OnlineDiscoveryView profile={profile} onPlaySong={handlePlaySong} onAddSongs={handleAddSongs} showNotification={showNotification} onNavigate={handleNavigate} onPlayAiPlaylist={handlePlayAiPlaylist} isGeneratingAiPlaylist={isGeneratingAiPlaylist} onUpdateProfile={updateProfile} initialSearchQuery={initialAssistantSearch} onClearInitialSearch={() => setInitialAssistantSearch(undefined)} onOpenSongDetails={(song) => { setModalData(song); setActiveModal('share_preview'); }} librarySongs={librarySongs} />;
+        case 'Explore': return <OnlineDiscoveryView profile={profile} librarySongs={librarySongs} onPlaySong={handlePlaySong} onAddSongs={handleAddSongs} showNotification={showNotification} onNavigate={handleNavigate} onPlayAiPlaylist={handlePlayAiPlaylist} isGeneratingAiPlaylist={isGeneratingAiPlaylist} initialSearchQuery={initialAssistantSearch} onClearInitialSearch={() => setInitialAssistantSearch(undefined)} onOpenSongDetails={(song) => { setModalData(song); setActiveModal('share_preview'); }} />;
         case 'SimpleModeSettings': return <SimpleModeSettingsView profile={profile!} onUpdateProfile={updateProfile} onBack={handleBack} onAddWisdom={() => setActiveModal('add_wisdom')} />;
         case 'Appearance': return <CustomizeAppearanceView profile={profile!} onClose={handleBack} onThemePairChange={handleThemePairChange} onFontChange={handleFontChange} onApplyCustomTheme={handleApplyCustomTheme} />;
         case 'Home':
@@ -1784,9 +1786,7 @@ useEffect(() => {
                 isLyricsMinimized={isLyricsMinimized}
                 favoriteStations={profile.favoriteRadioStations || []}
                 onToggleFavoriteStation={(station) => updateProfile(p => ({ ...p, favoriteRadioStations: (p.favoriteRadioStations || []).some(s => s.stationuuid === station.stationuuid) ? (p.favoriteRadioStations || []).filter(s => s.stationuuid !== station.stationuuid) : [...(p.favoriteRadioStations || []), station] }))}
-                onViewArtist={setArtistToView}
                 isQueueFlashing={isQueueFlashing}
-                onSharePreview={() => { setModalData(nowPlaying); setActiveModal('share_preview'); }}
                 onExitSimpleMode={() => updateProfile(p => ({ ...p, settings: { ...p.settings, simpleMode: { ...p.settings.simpleMode, enabled: false } } }))}
                 visualizerColor={profile.settings.visualizerSettings.useAlbumArtColor ? (dynamicThemeOverrides ? dynamicThemeOverrides['--primary-accent'] : null) : null}
             />

@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { Video, Song, ProfileData } from '../types.ts';
 import CommentsModal from './CommentsModal.tsx';
@@ -38,7 +39,6 @@ const AssistantAwarenessChip: React.FC<{ isOnline: boolean, onClick: () => void,
 interface VideoPlayerProps {
   video: Video;
   onUpdate: (video: Video) => void;
-  isLibraryPlaying: boolean;
   onReelActiveChange: (isActive: boolean) => void;
   onToggleNavVisibility: (isHidden: boolean) => void;
   onPlayAsAudio: (video: Video) => void;
@@ -59,7 +59,7 @@ const formatTime = (seconds: number) => {
 };
 
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, onUpdate, isLibraryPlaying, onReelActiveChange, onToggleNavVisibility, onPlayAsAudio, nowPlaying, onUpdateProfile, profile, onPlaybackComplete, onOpenAssistant, isAssistantOnline }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, onUpdate, onReelActiveChange, onToggleNavVisibility, onPlayAsAudio, nowPlaying, onUpdateProfile, profile, onPlaybackComplete, onOpenAssistant, isAssistantOnline }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const uiHideTimeout = useRef<number | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
