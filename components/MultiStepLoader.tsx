@@ -1,7 +1,6 @@
 "use client";
 import { AnimatePresence, motion } from "framer-motion";
-import React, { useEffect, useState, useMemo } from "react";
-import { fonts } from "../constants";
+import React, { useEffect, useState } from "react";
 
 type LoadingState = {
   text: string;
@@ -17,14 +16,6 @@ export const MultiStepLoader = ({
   duration?: number;
 }) => {
   const [currentState, setCurrentState] = useState(0);
-
-  const calligraphyFonts = useMemo(() => 
-    fonts.filter(f => f.category === 'Handwriting' || f.category === 'Elegant').map(f => f.family),
-  []);
-
-  const randomFontFamily = useMemo(() => 
-    calligraphyFonts[Math.floor(Math.random() * calligraphyFonts.length)],
-  [calligraphyFonts]);
 
   useEffect(() => {
     if (!loading) {
@@ -51,9 +42,7 @@ export const MultiStepLoader = ({
             className="mb-12 font-poppins"
         >
             <h1 className="text-2xl text-white/80">Welcome to</h1>
-            <h1 className="text-4xl font-bold text-[var(--primary-accent)]" style={{ fontFamily: randomFontFamily }}>
-                Mwijay Music
-            </h1>
+            <h1 className="text-4xl font-bold text-[var(--primary-accent)]">Mwijay Music</h1>
         </motion.div>
 
         <div className="w-40 h-40">

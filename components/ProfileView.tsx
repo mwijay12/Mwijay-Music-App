@@ -169,7 +169,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile, onO
                                 id="userName"
                                 type="text" 
                                 value={profile.name} 
-                                onChange={handleNameChange}
+                                onChange={handleNameChange} 
                                 maxLength={30}
                                 className="text-xl font-bold bg-transparent border-0 border-b-2 border-[var(--chip-bg)] focus:border-[var(--primary-accent)] focus:ring-0 w-full p-1"
                              />
@@ -179,7 +179,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile, onO
                 
                 <SectionCard title="Your Stats">
                     <div className="grid grid-cols-3 gap-4">
-                        <StatItem value={formatListenTime(profile.analytics.listenTime)} label="Listen Time" icon="fa-headphones" />
+                        <StatItem value={formatListenTime(profile.analytics.listenTime + (profile.analytics.radioListenTime || 0))} label="Listen Time" icon="fa-headphones" />
                         <StatItem value={profile.analytics.songsUploaded.toString()} label="Songs in Library" icon="fa-music" />
                         <StatItem value={(profile.unlockedAchievements || []).length.toString()} label="Achievements" icon="fa-trophy" />
                     </div>
@@ -268,7 +268,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile, onO
                     <div className="space-y-4">
                         <div>
                             <h3 className="text-md font-bold mb-2 text-neutral-300">Animation Style</h3>
-                            <div className="prompt-scroller -mx-6 px-6 pb-2">
+                             <div className="prompt-scroller">
                                 <div className="prompt-scroller-content">
                                     {nameplateAnimations.map(anim => (
                                         <button 
@@ -285,7 +285,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile, onO
                         </div>
                          <div>
                             <h3 className="text-md font-bold mb-2 text-neutral-300">Font Style</h3>
-                            <div className="prompt-scroller -mx-6 px-6 pb-2">
+                            <div className="prompt-scroller">
                                 <div className="prompt-scroller-content">
                                     {specialFonts.map(font => (
                                         <button 

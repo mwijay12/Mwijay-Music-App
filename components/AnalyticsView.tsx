@@ -46,6 +46,12 @@ const AnalyticsView: React.FC<{ profile: ProfileData; onBack: () => void }> = ({
             </header>
 
             <div className="space-y-6">
+                 <div className="grid grid-cols-2 gap-4">
+                    <StatCard value={formatListenTime(analytics.listenTime + (analytics.radioListenTime || 0))} label="Total Listen Time" icon="fa-headphones" />
+                    <StatCard value={analytics.songsPlayed.toString()} label="Songs Played" icon="fa-play" />
+                    <StatCard value={analytics.songsUploaded.toString()} label="Songs in Library" icon="fa-music" />
+                    <StatCard value={profile.unlockedAchievements.length.toString()} label="Achievements" icon="fa-trophy" />
+                </div>
                  <div className="bg-[var(--surface-color)] p-6 rounded-2xl">
                     <h2 className="text-xl font-bold mb-4">Weekly Activity</h2>
                     <div className="flex justify-around items-end h-40 gap-2 border-b pb-2" style={{borderColor: 'var(--surface-border-color)'}}>

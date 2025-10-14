@@ -13,7 +13,6 @@ interface HomeViewProps {
     onToggleTheme: () => void;
     onOpenAddMoodModal: () => void;
     isAssistantOpening: boolean;
-    isVibrantTheme: boolean;
 }
 
 const HorizontalSongScroller: React.FC<{title: string, songs: Song[], onPlaySong: (song: Song, context: Song[]) => void, emptyMessage?: string}> = 
@@ -47,7 +46,7 @@ const HorizontalSongScroller: React.FC<{title: string, songs: Song[], onPlaySong
 };
 
 
-const HomeView: React.FC<HomeViewProps> = ({ profile, librarySongs, onNavigate, onPlaySong, onOpenAssistant, onToggleTheme, onOpenAddMoodModal, isAssistantOpening, isVibrantTheme }) => {
+const HomeView: React.FC<HomeViewProps> = ({ profile, librarySongs, onNavigate, onPlaySong, onOpenAssistant, onToggleTheme, onOpenAddMoodModal, isAssistantOpening }) => {
     const [selectedMood, setSelectedMood] = useState<string | null>(null);
 
     const allMoods = useMemo(() => {
@@ -90,7 +89,6 @@ const HomeView: React.FC<HomeViewProps> = ({ profile, librarySongs, onNavigate, 
                 onAvatarClick={() => onNavigate('Profile')}
                 onOpenCreateView={() => onNavigate('Create')}
                 onToggleTheme={onToggleTheme}
-                isVibrantTheme={isVibrantTheme}
             />
 
             <section className="mb-8">

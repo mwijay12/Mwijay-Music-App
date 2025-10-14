@@ -1,9 +1,6 @@
-
-
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 import type { ChatMessage, Song, ProfileData } from '../types.ts';
-// FIX: Adjusted import path for assistantKnowledge to be relative to the hooks directory.
 import { assistantKnowledge } from './assistantKnowledge.ts';
 import { fonts } from '../constants.ts';
 
@@ -37,8 +34,7 @@ interface AppControls {
     playRadio: (query?: string) => void;
     toggleInputView: () => void;
     setThemeMode: (mode: 'light' | 'dark') => void;
-    // FIX: Updated type to include 'off' for cancelling the sleep timer.
-    setSleepTimer: (mode: 'duration' | 'songs' | 'off', value: number) => void;
+    setSleepTimer: (mode: 'duration' | 'songs', value: number) => void;
     changeFont: (fontName: string) => void;
     applyCustomTheme: (colors: ProfileData['customThemeColors']) => void;
     toggleFavorite: () => void;
@@ -47,9 +43,11 @@ interface AppControls {
     navigateToView: (viewName: string) => void;
     openAudioEffects: () => void;
     setBackgroundEffect: (enabled: boolean, style?: ProfileData['settings']['backgroundEffects']['style']) => void;
-    // FIX: Added missing properties to AppControls to match CommandContext in assistantKnowledge.ts
     searchOnlineMusic: (query: string) => void;
     playAiPlaylist: () => void;
+    // FIX: Add missing `toggleShuffle` and `cycleRepeat` to satisfy CommandContext
+    toggleShuffle: () => void;
+    cycleRepeat: () => void;
 }
 
 interface UseAssistantProps {
@@ -210,6 +208,17 @@ const functionDeclarations: FunctionDeclaration[] = [
   {
     name: 'playAiPlaylist',
     description: 'Generates a new playlist based on the user\'s listening history and starts playing it. Use this for general requests like "play something I would like" or "make a playlist for me".',
+    parameters: { type: Type.OBJECT, properties: {} }
+  },
+  // FIX: Add missing function declarations
+  {
+    name: 'toggleShuffle',
+    description: 'Toggles shuffle mode for the current playlist or queue.',
+    parameters: { type: Type.OBJECT, properties: {} }
+  },
+  {
+    name: 'cycleRepeatMode',
+    description: 'Cycles through repeat modes: none, repeat all, and repeat one.',
     parameters: { type: Type.OBJECT, properties: {} }
   },
 ];
@@ -402,6 +411,15 @@ ${systemContext}
                             case 'playPrevious':
                                 controls.playPrev();
                                 confirmationText = "Going back to the previous track.";
+                                break;
+                            // FIX: Add missing switch cases
+                            case 'toggleShuffle':
+                                controls.toggleShuffle();
+                                confirmationText = "Toggled shuffle mode.";
+                                break;
+                            case 'cycleRepeatMode':
+                                controls.cycleRepeat();
+                                confirmationText = "Changed repeat mode.";
                                 break;
                             case 'playRadio':
                                 const query = fc.args.query as string | undefined;

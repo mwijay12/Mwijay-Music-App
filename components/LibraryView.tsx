@@ -1,4 +1,5 @@
 
+
 import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import type { Song, Playlist } from '../types.ts';
 import { FAVORITES_PLAYLIST_ID, getRandomCoverArt } from '../constants.ts';
@@ -162,70 +163,82 @@ const LibraryView: React.FC<LibraryViewProps> = ({ songs, playlists, onAddSongs,
   const processFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     
-    showNotification(`Importing ${files.length} song(s)...`, 'info');
-
     const audioFiles = Array.from(files).filter(file => file.type.startsWith('audio/'));
-    const newSongs: Song[] = [];
 
-    for (const file of audioFiles) {
-        try {
-            const song = await new Promise<Song>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const audioData = e.target?.result as ArrayBuffer;
-                    jsmediatags.read(file, {
-                        onSuccess: (tag: any) => {
-                            const tags = tag.tags;
-                            let albumArtUrl = getRandomCoverArt();
-                            if (tags.picture) {
-                                const { data, format } = tags.picture;
-                                let base64String = "";
-                                for (let i = 0; i < data.length; i++) {
-                                    base64String += String.fromCharCode(data[i]);
-                                }
-                                albumArtUrl = `data:${format};base64,${window.btoa(base64String)}`;
-                            }
-                            resolve({
-                                id: `song-${file.name}-${file.lastModified}-${file.size}`,
-                                title: tags.title || file.name.replace(/\.[^/.]+$/, ""),
-                                artist: tags.artist || 'Unknown Artist',
-                                albumArtUrl: albumArtUrl,
-                                audioData: audioData,
-                                mimeType: file.type,
-                                isFavorite: false,
-                                dateAdded: Date.now(),
-                            });
-                        },
-                        onError: () => {
-                             resolve({
-                                id: `song-${file.name}-${file.lastModified}-${file.size}`,
-                                title: file.name.replace(/\.[^/.]+$/, ""),
-                                artist: 'Unknown Artist',
-                                albumArtUrl: getRandomCoverArt(),
-                                audioData: audioData,
-                                mimeType: file.type,
-                                isFavorite: false,
-                                dateAdded: Date.now(),
-                            });
-                        }
-                    });
-                };
-                reader.onerror = reject;
-                reader.readAsArrayBuffer(file);
-            });
-            newSongs.push(song);
-            showNotification(`Imported: ${truncate(file.name, 20)}`, 'info');
-        } catch (error) {
-            console.error(`Failed to process file ${file.name}:`, error);
-            showNotification(`Failed to import ${truncate(file.name, 20)}`, 'error');
-        }
+    if (audioFiles.length > 50) {
+        showNotification('You can upload up to 50 songs at once.', 'error');
+        return;
     }
+    
+    if (audioFiles.length === 0) {
+        showNotification('No audio files were found in your selection.', 'info');
+        return;
+    }
+
+    showNotification(`Importing ${audioFiles.length} song(s)...`, 'info');
+
+    let failedCount = 0;
+    const songPromises = audioFiles.map(file => 
+      new Promise<Song | null>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const audioData = e.target?.result as ArrayBuffer;
+          jsmediatags.read(file, {
+            onSuccess: (tag: any) => {
+              const tags = tag.tags;
+              let albumArtUrl = getRandomCoverArt();
+              if (tags.picture) {
+                const { data, format } = tags.picture;
+                let base64String = "";
+                for (let i = 0; i < data.length; i++) {
+                  base64String += String.fromCharCode(data[i]);
+                }
+                albumArtUrl = `data:${format};base64,${window.btoa(base64String)}`;
+              }
+              resolve({
+                id: `song-${file.name}-${file.lastModified}-${file.size}`,
+                title: tags.title || file.name.replace(/\.[^/.]+$/, ""),
+                artist: tags.artist || 'Unknown Artist',
+                albumArtUrl: albumArtUrl,
+                audioData: audioData,
+                mimeType: file.type,
+                isFavorite: false,
+                dateAdded: Date.now(),
+              });
+            },
+            onError: () => {
+              resolve({
+                id: `song-${file.name}-${file.lastModified}-${file.size}`,
+                title: file.name.replace(/\.[^/.]+$/, ""),
+                artist: 'Unknown Artist',
+                albumArtUrl: getRandomCoverArt(),
+                audioData: audioData,
+                mimeType: file.type,
+                isFavorite: false,
+                dateAdded: Date.now(),
+              });
+            }
+          });
+        };
+        reader.onerror = (error) => {
+            console.error(`Failed to read file ${file.name}:`, error);
+            failedCount++;
+            resolve(null);
+        };
+        reader.readAsArrayBuffer(file);
+      })
+    );
+      
+    const settledSongs = await Promise.all(songPromises);
+    const newSongs = settledSongs.filter((s): s is Song => s !== null);
       
     if (newSongs.length > 0) {
         onAddSongs(newSongs);
-        showNotification(`Added ${newSongs.length} song(s) to your library.`, 'success');
-    } else {
-        showNotification(`No valid audio files found to import.`, 'error');
+        showNotification(`Added ${newSongs.length} song(s). ${failedCount > 0 ? `${failedCount} failed to read.` : ''}`, 'success');
+    } else if (failedCount > 0) {
+        showNotification(`Could not read any of the selected files.`, 'error');
+    } else if (audioFiles.length > 0) {
+        showNotification(`Could not process the selected audio files.`, 'error');
     }
   };
 
@@ -462,9 +475,9 @@ const LibraryView: React.FC<LibraryViewProps> = ({ songs, playlists, onAddSongs,
         <SongDetailsModal
             song={songForDetails}
             onClose={() => setSongForDetails(null)}
-            onUpdateSong={(updatedSong) => {
+            onSave={(updatedSong) => {
                 onUpdateSong(updatedSong);
-                setSongForDetails(updatedSong); // Keep modal open with updated info
+                setSongForDetails(null);
             }}
             onViewArtist={onViewArtist}
             onPlayNow={() => {
@@ -473,6 +486,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ songs, playlists, onAddSongs,
             }}
             onAddToQueue={() => {
                 if(songForDetails) onAddToQueue(songForDetails);
+                setSongForDetails(null);
             }}
             onDelete={() => {
                 if(songForDetails) {
@@ -483,6 +497,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ songs, playlists, onAddSongs,
             onSharePreview={() => {
               if (songForDetails) {
                  onOpenSongDetails(songForDetails);
+                 setSongForDetails(null);
               }
             }}
             onDownloadFile={() => {

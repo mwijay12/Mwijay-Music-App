@@ -24,7 +24,6 @@ const MwijayAssistantButton: React.FC<MwijayAssistantButtonProps> = ({ onClick, 
             </svg>
           </div>
           <p>
-            {/* FIX: Cast style to React.CSSProperties to allow for custom CSS variables. */}
             <span style={{'--i': 0} as React.CSSProperties}>M</span>
             <span style={{'--i': 1} as React.CSSProperties}>w</span>
             <span style={{'--i': 2} as React.CSSProperties}>i</span>
@@ -53,7 +52,6 @@ const MwijayAssistantButton: React.FC<MwijayAssistantButtonProps> = ({ onClick, 
             </svg>
           </div>
           <p>
-            {/* FIX: Cast style to React.CSSProperties to allow for custom CSS variables. */}
             <span style={{'--i': 0} as React.CSSProperties}>O</span>
             <span style={{'--i': 1} as React.CSSProperties}>p</span>
             <span style={{'--i': 2} as React.CSSProperties}>e</span>

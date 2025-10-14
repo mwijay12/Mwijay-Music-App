@@ -142,12 +142,10 @@ const RadioView: React.FC<RadioViewProps> = ({ profile, onPlayStation, favoriteS
             {(profile?.favoriteRadioGenres?.length ?? 0) > 0 && (
                 <section className="mb-6">
                     <h2 className="text-xl font-bold mb-4">Your Genres</h2>
-                    <div className="prompt-scroller -mx-4 px-4 pb-2">
-                        <div className="prompt-scroller-content">
-                            {profile?.favoriteRadioGenres?.map(genre => (
-                                <button key={genre} onClick={() => handleListItemClick({ name: genre }, 'genre')} className="flex-shrink-0 text-sm font-bold px-4 py-3 rounded-full bg-[var(--chip-bg)] capitalize">{genre}</button>
-                            ))}
-                        </div>
+                    <div className="flex overflow-x-auto gap-2 scroll-container -mx-4 px-4 pb-2">
+                        {profile?.favoriteRadioGenres?.map(genre => (
+                            <button key={genre} onClick={() => handleListItemClick({ name: genre }, 'genre')} className="flex-shrink-0 text-sm font-bold px-4 py-3 rounded-full bg-[var(--chip-bg)] capitalize">{genre}</button>
+                        ))}
                     </div>
                 </section>
             )}
@@ -155,12 +153,10 @@ const RadioView: React.FC<RadioViewProps> = ({ profile, onPlayStation, favoriteS
             {(profile?.favoriteRadioRegions?.length ?? 0) > 0 && (
                  <section className="mb-6">
                     <h2 className="text-xl font-bold mb-4">Your Regions</h2>
-                    <div className="prompt-scroller -mx-4 px-4 pb-2">
-                        <div className="prompt-scroller-content">
-                            {profile?.favoriteRadioRegions?.map(region => (
-                                <button key={region} onClick={() => handleListItemClick({ name: region }, 'region')} className="flex-shrink-0 text-sm font-bold px-4 py-3 rounded-full bg-[var(--chip-bg)]">{region}</button>
-                            ))}
-                        </div>
+                     <div className="flex overflow-x-auto gap-2 scroll-container -mx-4 px-4 pb-2">
+                        {profile?.favoriteRadioRegions?.map(region => (
+                            <button key={region} onClick={() => handleListItemClick({ name: region }, 'region')} className="flex-shrink-0 text-sm font-bold px-4 py-3 rounded-full bg-[var(--chip-bg)]">{region}</button>
+                        ))}
                     </div>
                 </section>
             )}

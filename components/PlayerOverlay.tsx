@@ -85,7 +85,7 @@ interface PlayerOverlayProps {
     onSeekStart: () => void;
     onSeekEnd: () => void;
     onSeekBy: (delta: number) => void;
-    onToggleFavorite: (id: string) => void;
+    onToggleFavorite: () => void;
     playQueue: Song[];
     currentQueueIndex: number;
     setPlayQueue: React.Dispatch<React.SetStateAction<Song[]>>;
@@ -109,7 +109,6 @@ interface PlayerOverlayProps {
     onSharePreview: () => void;
     onExitSimpleMode: () => void;
     visualizerColor?: string | null;
-    analyserData?: Uint8Array | null;
 }
 
 const formatTime = (seconds: number) => {
@@ -123,7 +122,7 @@ const formatTime = (seconds: number) => {
 const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
     isVisible, song, isPlaying, progress, duration, onClose, onTogglePlay, onNext, onPrev, onSeek, onSeekStart, onSeekEnd, onSeekBy, onToggleFavorite, playQueue, currentQueueIndex, setPlayQueue, onPlayFromQueue,
     repeatMode, isShuffled, onCycleRepeat, onToggleShuffle, onSetSleepTimer, sleepTimer, profile, onUpdateProfile, onToggleLyrics, onOpenMoodModal, onOpenEqualizer, isLyricsMinimized,
-    favoriteStations, onToggleFavoriteStation, onViewArtist, isQueueFlashing, onSharePreview, onExitSimpleMode, visualizerColor, analyserData
+    favoriteStations, onToggleFavoriteStation, onViewArtist, isQueueFlashing, onSharePreview, onExitSimpleMode, visualizerColor
 }) => {
     const [activeModal, setActiveModal] = useState<'sleep' | 'visualizer' | null>(null);
     const tapTimeoutRef = useRef<number | null>(null);
@@ -190,7 +189,7 @@ const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
             };
             onToggleFavoriteStation(stationToToggle);
         } else {
-            onToggleFavorite(song.id);
+            onToggleFavorite();
         }
     };
 
@@ -289,6 +288,7 @@ const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
                     onTouchStart={handleTouchStart}
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
+                    style={visualizerColor ? { '--visualizer-color': visualizerColor } as React.CSSProperties : {}}
                 >
                     {/* Interaction Layers */}
                     {!isLive && (
@@ -302,9 +302,8 @@ const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
                     {/* Visualizer and Art Container */}
                     <div
                         className="relative w-full max-w-xs aspect-square flex-shrink-0"
-                        style={visualizerColor ? { '--visualizer-color': visualizerColor } as React.CSSProperties : {}}
                     >
-                        <Visualizer type={profile.settings.visualizerSettings.type} isPlaying={isPlaying} analyserData={analyserData} />
+                        <Visualizer type={profile.settings.visualizerSettings.type} isPlaying={isPlaying} />
                         <div 
                             className="absolute inset-0 flex items-center justify-center double-tap-area"
                             style={{ padding: `${artPadding}%` }}
@@ -377,13 +376,13 @@ const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
                             <button onClick={onToggleShuffle} className={`text-lg w-12 h-12 transition-colors ${isShuffled ? 'text-[var(--primary-accent)]' : 'text-neutral-400'}`} aria-label="Toggle Shuffle" title="Toggle Shuffle">
                                 <i className="fas fa-shuffle"></i>
                             </button>
-                            <button onClick={onPrev} disabled={isLive} className="text-2xl w-16 h-16 text-neutral-200 disabled:opacity-50" aria-label="Previous song" title="Previous song">
+                            <button onClick={onPrev} disabled={isLive} className="player-control-button text-2xl w-16 h-16 text-neutral-200 disabled:opacity-50" aria-label="Previous song" title="Previous song">
                                 <i className="fas fa-backward-step"></i>
                             </button>
-                            <button onClick={onTogglePlay} className="w-16 h-16 bg-white text-black rounded-full text-3xl flex items-center justify-center shadow-lg" aria-label={isPlaying ? 'Pause' : 'Play'} title={isPlaying ? 'Pause' : 'Play'}>
+                            <button onClick={onTogglePlay} className="player-control-button w-16 h-16 bg-white text-black rounded-full text-3xl flex items-center justify-center shadow-lg" aria-label={isPlaying ? 'Pause' : 'Play'} title={isPlaying ? 'Pause' : 'Play'}>
                                 <i className={`fas ${isPlaying ? 'fa-pause' : 'fa-play'}`}></i>
                             </button>
-                            <button onClick={onNext} disabled={isLive} className="text-2xl w-16 h-16 text-neutral-200 disabled:opacity-50" aria-label="Next song" title="Next song">
+                            <button onClick={onNext} disabled={isLive} className="player-control-button text-2xl w-16 h-16 text-neutral-200 disabled:opacity-50" aria-label="Next song" title="Next song">
                                 <i className="fas fa-forward-step"></i>
                             </button>
                             <button onClick={onCycleRepeat} className={`text-lg w-12 h-12 transition-colors relative ${repeatMode !== 'none' ? 'text-[var(--primary-accent)]' : 'text-neutral-400'}`} aria-label="Cycle repeat mode" title={`Repeat: ${repeatMode}`}>

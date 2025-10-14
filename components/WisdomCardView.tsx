@@ -151,7 +151,7 @@ const WisdomCardView: React.FC<WisdomCardViewProps> = ({ song, isPlaying, onTogg
 
                         <div className="bg-[#1C1C1E] rounded-2xl p-6 mt-4">
                             <div className="flex justify-between items-center">
-                                <h3 className="font-bold text-lg" style={{ color: 'var(--primary-accent)' }}>Sound Vibe</h3>
+                                <h3 className="font-bold text-lg" style={{ color: 'var(--primary-accent)' }}>Mwijay Music App</h3>
                                 <div className="flex items-center gap-4 text-neutral-400">
                                     <button onClick={handleLikeWisdom} className={`transition-colors ${isWisdomLiked ? 'text-[var(--primary-accent)]' : 'hover:text-white'}`} title="Like this vibe">
                                         <i className={`${isWisdomLiked ? 'fas' : 'far'} fa-thumbs-up text-xl`}></i>
@@ -168,12 +168,10 @@ const WisdomCardView: React.FC<WisdomCardViewProps> = ({ song, isPlaying, onTogg
                     </div>
                 </main>
 
-                <footer className="relative z-10 flex-shrink-0 w-full max-w-sm mx-auto pb-4">
-                    <div className="flex justify-end mb-4 px-4">
-                         <button onClick={handleLikeSong} className="text-3xl">
-                            <i className={`${isHeartBeating ? 'heart-beat-anim' : ''} ${song.isFavorite ? 'fas text-red-500' : 'far'} fa-heart`}></i>
-                        </button>
-                    </div>
+                <footer className="relative z-10 flex-shrink-0 w-full max-w-sm mx-auto pb-4 flex flex-col items-center gap-4">
+                    <button onClick={handleLikeSong} className="text-3xl">
+                        <i className={`${isHeartBeating ? 'heart-beat-anim' : ''} ${song.isFavorite ? 'fas text-red-500' : 'far'} fa-heart`}></i>
+                    </button>
                     <div className="flex justify-around items-center w-full">
                         <button className="text-3xl text-neutral-200 w-16 h-16" onClick={onPrev} disabled={song.duration === Infinity} aria-label="Previous song">
                             <i className="fas fa-backward-step"></i>
@@ -197,7 +195,7 @@ const WisdomCardView: React.FC<WisdomCardViewProps> = ({ song, isPlaying, onTogg
                 style={{ backgroundImage: `url(${song.albumArtUrl})`, filter: 'blur(40px) brightness(0.4)', transform: 'scale(1.2)' }}
             />
              <div className="relative z-10 flex justify-between items-center flex-shrink-0 self-stretch">
-                <h1 className="font-bold text-lg">Sound Vibe</h1>
+                <h1 className="font-bold text-lg">Mwijay Music App</h1>
                 <button onClick={onExit} className="text-2xl text-neutral-400 hover:text-white" aria-label="Exit Simple Mode">
                     <i className="fas fa-times"></i>
                 </button>
@@ -216,7 +214,7 @@ const WisdomCardView: React.FC<WisdomCardViewProps> = ({ song, isPlaying, onTogg
                             </div>
                         </div>
                         <div className="wisdom-flip-card-back p-4">
-                            <h2 className="text-2xl font-bold" style={{ color: 'var(--primary-accent)'}}>Sound Vibe</h2>
+                            <h2 className="text-2xl font-bold" style={{ color: 'var(--primary-accent)'}}>Mwijay Music App</h2>
                             <div className="flex-1 flex items-center justify-center px-2">
                                 {isLoading ? <i className="fas fa-spinner fa-spin text-2xl"></i> : <p className="text-center"><TextGenerateEffect words={wisdomText} /></p>}
                             </div>
@@ -233,12 +231,10 @@ const WisdomCardView: React.FC<WisdomCardViewProps> = ({ song, isPlaying, onTogg
                 </div>
             </main>
 
-            <footer className="relative z-10 flex-shrink-0 pt-6 w-full max-w-sm flex flex-col items-center">
-                 <div className="mb-4">
-                    <button onClick={handleLikeSong} className="text-3xl">
-                        <i className={`${isHeartBeating ? 'heart-beat-anim' : ''} ${song.isFavorite ? 'fas text-red-500' : 'far'} fa-heart`}></i>
-                    </button>
-                </div>
+            <footer className="relative z-10 flex-shrink-0 pt-6 w-full max-w-sm flex flex-col items-center gap-4">
+                <button onClick={handleLikeSong} className="text-3xl">
+                    <i className={`${isHeartBeating ? 'heart-beat-anim' : ''} ${song.isFavorite ? 'fas text-red-500' : 'far'} fa-heart`}></i>
+                </button>
                 <div className="flex justify-around items-center w-full">
                     <button className="text-3xl text-neutral-200 w-16 h-16" onClick={onPrev} disabled={song.duration === Infinity} aria-label="Previous song">
                         <i className="fas fa-backward-step"></i>

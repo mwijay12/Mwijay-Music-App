@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import SettingsToggle from './SettingsToggle.tsx';
 import type { ProfileData } from '../types.ts';
@@ -16,10 +15,9 @@ interface SettingsViewProps {
     onUpdateProfile: (updater: (prev: ProfileData) => ProfileData) => void;
     onOpenNeonGlowModal: () => void;
     onNavigate: (view: string) => void;
-    onResetProfile: () => void;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ profile, onUpdateProfile, onOpenNeonGlowModal, onNavigate, onResetProfile }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ profile, onUpdateProfile, onOpenNeonGlowModal, onNavigate }) => {
     
     const handleToggle = () => {
         onUpdateProfile(p => ({
@@ -140,21 +138,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ profile, onUpdateProfile, o
                         </div>
                         <button onClick={() => onNavigate('CustomizeParticles')} className="bg-[var(--chip-bg)] text-white font-bold py-2 px-4 rounded-full text-sm" title="Customize background effects">
                             Customize
-                        </button>
-                    </div>
-                </SettingsSection>
-                 <SettingsSection title="Danger Zone">
-                    <div className="bg-red-900/20 border border-red-500/30 p-4 rounded-lg flex items-center justify-between">
-                        <div>
-                            <p className="font-bold text-red-400">Reset Settings</p>
-                            <p className="text-xs text-red-400/80 mt-1">Reset all visual and playback settings to their original defaults. This will not affect your library.</p>
-                        </div>
-                        <button 
-                            onClick={onResetProfile} 
-                            className="bg-red-500 text-white font-bold py-2 px-4 rounded-full text-sm" 
-                            title="Reset all settings to default"
-                        >
-                            Reset
                         </button>
                     </div>
                 </SettingsSection>

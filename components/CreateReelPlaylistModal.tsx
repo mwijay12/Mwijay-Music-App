@@ -51,7 +51,7 @@ const CreateReelPlaylistModal: React.FC<CreateReelPlaylistModalProps> = ({ video
     return (
         <>
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={onClose}>
-                <div className="bg-[var(--surface-color)] rounded-2xl flex flex-col w-full max-w-lg max-h-[90vh] overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+                <div className="liquid-glass-pane rounded-2xl flex flex-col w-full max-w-lg max-h-[90vh] overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
                     <header className="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0">
                         <h2 className="font-bold text-lg">Create Reel Playlist</h2>
                         <button onClick={onClose} className="text-white/70 hover:text-white" aria-label="Close modal"><i className="fas fa-times text-2xl"></i></button>

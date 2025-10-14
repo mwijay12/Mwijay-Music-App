@@ -11,10 +11,9 @@ interface HeaderProps {
     onAvatarClick: () => void;
     onOpenCreateView: () => void;
     onToggleTheme: () => void;
-    isVibrantTheme: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ profile, greetingText, greetingEmoji, onAvatarClick, onOpenCreateView, onToggleTheme, isVibrantTheme }) => {
+const Header: React.FC<HeaderProps> = ({ profile, greetingText, greetingEmoji, onAvatarClick, onOpenCreateView, onToggleTheme }) => {
     const nameplateFontFamily = fonts.find(f => f.name === profile.nameplateFont)?.family || "'Satoshi', sans-serif";
     const displayName = profile.name;
     const nameplateAnimationClass = `name-anim-${profile.settings.nameplateAnimation || 'none'}`;
@@ -52,7 +51,7 @@ const Header: React.FC<HeaderProps> = ({ profile, greetingText, greetingEmoji, o
                 </div>
             </div>
             <div className="flex gap-4 items-center">
-                 {!isVibrantTheme && <AnimatedThemeToggler themeMode={profile.themeMode} onToggle={onToggleTheme} />}
+                 <AnimatedThemeToggler themeMode={profile.themeMode} onToggle={onToggleTheme} />
                 <button onClick={onOpenCreateView} className="text-xl" aria-label="Open AI Lyric Studio" title="Open AI Lyric Studio">
                     <i className="fas fa-wand-magic-sparkles"></i>
                 </button>

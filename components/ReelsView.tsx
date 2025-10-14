@@ -158,14 +158,8 @@ const ReelsView: React.FC<ReelsViewProps> = ({
             <header className="absolute top-0 left-0 right-0 z-40 flex justify-between items-center p-4 text-[var(--text-primary)] bg-gradient-to-b from-black/50 to-transparent">
                 <h1 className="font-bold text-xl">Mwijay Reels</h1>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => fileInputRef.current?.click()} className="bg-[var(--chip-bg)] text-white w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105" title="Upload Reel">
-                        <i className="fas fa-plus"></i>
-                    </button>
-                    <button
-                        onClick={() => setIsManaging(true)}
-                        className="bg-[var(--chip-bg)] text-white font-bold py-2 px-4 rounded-full flex items-center gap-2 transition-transform hover:scale-105"
-                        title="Manage Reels"
-                    >
+                    <button onClick={() => fileInputRef.current?.click()} className="bg-[var(--chip-bg)] text-white w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105" title="Upload Reel"><i className="fas fa-plus text-xl"></i></button>
+                    <button onClick={() => setIsManaging(true)} className="bg-[var(--chip-bg)] text-white font-bold py-2 px-4 rounded-full flex items-center gap-2 transition-transform hover:scale-105" title="Manage Reels">
                         <i className="fas fa-folder-open"></i>
                         <span>Manage</span>
                     </button>

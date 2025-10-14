@@ -5,7 +5,7 @@ const DB_NAME = 'MwijayMusicDB';
 const DB_VERSION = 20; // Incremented version for schema change
 let db: IDBDatabase;
 
-export const defaultProfile: ProfileData = {
+const defaultProfile: ProfileData = {
     name: user.name,
     avatarUrl: user.avatarUrl,
     onboarded: false,
@@ -50,10 +50,8 @@ export const defaultProfile: ProfileData = {
     themeMode: 'dark',
     activeFont: 'Satoshi',
     nameplateFont: 'Dancing Script',
-    customThemeColors: { primary: '#C8F052', secondary: '#A050FF', accent: '#7CFC00' },
+    customThemeColors: { primary: '#C8F052', secondary: '#A050FF', accent: '#FFFFFF' },
     recentlyPlayed: [],
-    lastPlayedSongId: undefined,
-    lastPlayedProgress: 0,
     recentlyPlayedOnline: [],
     recentlyPlayedRadios: [],
     usedFeatures: {

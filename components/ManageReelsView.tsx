@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Video, ReelPlaylist } from '../types.ts';
 import CreateReelPlaylistModal from './CreateReelPlaylistModal.tsx';
 import CoverArtPickerModal from './CoverArtPickerModal.tsx';
-// FIX: Imported 'getRandomCoverArt' to resolve reference error.
 import { getRandomCoverArt } from '../constants.ts';
 
 

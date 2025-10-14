@@ -67,7 +67,7 @@ const CustomizeParticlesView: React.FC<CustomizeParticlesViewProps> = ({ profile
                             <button
                                 key={style.id}
                                 onClick={() => handleUpdate('style', style.id)}
-                                className={`flex flex-col items-center justify-center gap-1 p-3 rounded-lg text-center transition-colors aspect-square ${settings.style === style.id ? 'bg-[var(--primary-accent)] text-black' : 'bg-white/10 hover:bg-white/20'}`}
+                                className={`customize-particles-button flex flex-col items-center justify-center gap-1 p-3 rounded-lg text-center transition-colors aspect-square ${settings.style === style.id ? 'active' : ''}`}
                             >
                                 <i className={`fas ${style.icon} text-xl`}></i>
                                 <span className="text-xs font-semibold">{style.name}</span>

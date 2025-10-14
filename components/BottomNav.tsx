@@ -20,7 +20,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ items, activeItem, onItemClick, i
     const animationDuration = (11 - speed) * 0.5;
 
     return (
-        <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[95%] max-w-sm transition-transform duration-300 ease-in-out ${isHidden ? 'translate-y-32' : 'translate-y-0'}`} style={{ height: 'var(--footer-height)' }}>
+        <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-sm transition-transform duration-300 ease-in-out ${isHidden ? 'translate-y-32' : 'translate-y-0'}`} style={{ height: 'var(--footer-height)' }}>
             <div
                 className={`neon-glow-container ${enabled ? `active style-${style}` : ''}`}
                 style={{ borderRadius: '9999px', '--animation-duration': `${animationDuration}s` } as React.CSSProperties}

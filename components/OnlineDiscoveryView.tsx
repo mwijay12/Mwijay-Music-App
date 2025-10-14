@@ -3,6 +3,7 @@ import type { Song, ProfileData } from '../types.ts';
 import { getRandomCoverArt } from '../constants.ts';
 import { fetchFromAudius, fetchFromArchive, fetchFromJamendo } from './db.ts';
 import OnlineSearchLoader from './OnlineSearchLoader.tsx';
+import SongDetailsModal from './SongDetailsModal.tsx';
 
 const useSearchHistory = (storageKey: string) => {
     const [history, setHistory] = useState<string[]>(() => {
@@ -66,6 +67,7 @@ const SearchHistory: React.FC<{ history: string[]; onSelect: (term: string) => v
 };
 interface OnlineDiscoveryViewProps {
     profile: ProfileData | null;
+    librarySongs: Song[];
     onPlaySong: (song: Song, context: Song[]) => void;
     onAddSongs: (songs: Song[]) => void;
     showNotification: (message: string, type?: 'success' | 'info' | 'error', icon?: string) => void;
@@ -75,6 +77,7 @@ interface OnlineDiscoveryViewProps {
     onUpdateProfile: (updater: (prev: ProfileData) => ProfileData) => void;
     initialSearchQuery?: string;
     onClearInitialSearch?: () => void;
+    onOpenSongDetails: (song: Song) => void;
 }
 
 const SkeletonLoader: React.FC = () => (
@@ -89,7 +92,7 @@ const SkeletonLoader: React.FC = () => (
 
 const truncate = (str: string, len: number) => str.length > len ? `${str.substring(0, len)}...` : str;
 
-const SongRow: React.FC<{ song: Song; onPlay: () => void; onDownload: () => void; isDownloading: boolean; }> = ({ song, onPlay, onDownload, isDownloading }) => {
+const SongRow: React.FC<{ song: Song; onPlay: () => void; onDownload: () => void; isDownloading: boolean; onOpenDetails: () => void; }> = ({ song, onPlay, onDownload, isDownloading, onOpenDetails }) => {
     const ref = useRef<HTMLDivElement>(null);
     const titleContainerRef = useRef<HTMLDivElement>(null);
     const titleRef = useRef<HTMLParagraphElement>(null);
@@ -119,8 +122,10 @@ const SongRow: React.FC<{ song: Song; onPlay: () => void; onDownload: () => void
     }, [song.title]);
 
     return (
-        <div ref={ref} className="group flex items-center gap-4 p-3 rounded-lg hover:bg-[var(--surface-color)] transition-colors opacity-0">
-            <img src={song.albumArtUrl} alt={song.title} className="w-14 h-14 rounded-md bg-[var(--chip-bg)] object-cover" />
+        <div ref={ref} className="idle-ui-container flex items-center gap-4 p-3 rounded-lg hover:bg-[var(--surface-color)] transition-colors opacity-0">
+            <button onClick={onOpenDetails} className="p-0 border-none bg-transparent rounded-md flex-shrink-0">
+                <img src={song.albumArtUrl} alt={song.title} className="w-14 h-14 rounded-md bg-[var(--chip-bg)] object-cover" />
+            </button>
             <div className="flex-1 min-w-0" onClick={onPlay}>
                 <div ref={titleContainerRef} className={`marquee-container ${isTitleOverflowing ? 'is-overflowing' : ''}`}>
                     <p ref={titleRef} className="marquee-content font-bold cursor-pointer leading-tight">{song.title}</p>
@@ -130,17 +135,17 @@ const SongRow: React.FC<{ song: Song; onPlay: () => void; onDownload: () => void
                     <span className="text-[10px] text-neutral-500 bg-black/20 px-1.5 py-0.5 rounded-full truncate flex-shrink-0">from {song.source}</span>
                 </div>
             </div>
-             <div className="flex items-center">
+             <div className="flex items-center idle-ui-fade">
                 {isDownloading ? (
                     <div className="w-12 h-12 rounded-full text-neutral-400 flex items-center justify-center" aria-label={`Downloading ${song.title}`}>
                         <i className="fas fa-spinner fa-spin text-lg"></i>
                     </div>
                 ) : (
-                    <button onClick={(e) => { e.stopPropagation(); onDownload(); }} className="control-icon w-12 h-12 rounded-full text-neutral-400 hover:text-white flex items-center justify-center transition-opacity focus:opacity-100" aria-label={`Download ${song.title}`} title={`Download to Library`}>
+                    <button onClick={(e) => { e.stopPropagation(); onDownload(); }} className="w-12 h-12 rounded-full text-neutral-400 hover:text-white flex items-center justify-center" aria-label={`Download ${song.title}`} title={`Download to Library`}>
                         <i className="fas fa-download text-lg"></i>
                     </button>
                 )}
-                <button onClick={(e) => { e.stopPropagation(); onPlay(); }} className="control-icon w-12 h-12 rounded-full bg-[var(--primary-accent)] text-black flex items-center justify-center ml-1 transition-opacity focus:opacity-100" aria-label={`Play ${song.title}`} title={`Play ${song.title}`}>
+                <button onClick={(e) => { e.stopPropagation(); onPlay(); }} className="w-12 h-12 rounded-full bg-[var(--primary-accent)] text-black flex items-center justify-center ml-1" aria-label={`Play ${song.title}`} title={`Play ${song.title}`}>
                     <i className="fas fa-play text-lg"></i>
                 </button>
             </div>
@@ -148,7 +153,7 @@ const SongRow: React.FC<{ song: Song; onPlay: () => void; onDownload: () => void
     );
 };
 
-const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, onPlaySong, onAddSongs, showNotification, onNavigate, onPlayAiPlaylist, isGeneratingAiPlaylist, onUpdateProfile, initialSearchQuery, onClearInitialSearch }) => {
+const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, librarySongs, onPlaySong, onAddSongs, showNotification, onNavigate, onPlayAiPlaylist, isGeneratingAiPlaylist, onUpdateProfile, initialSearchQuery, onClearInitialSearch, onOpenSongDetails }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<Song[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -161,6 +166,7 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, onPl
     const [error, setError] = useState<string | null>(null);
     const [viewAllRecentlyPlayed, setViewAllRecentlyPlayed] = useState(false);
     const [downloadingId, setDownloadingId] = useState<string | null>(null);
+    const [detailsSong, setDetailsSong] = useState<Song | null>(null);
 
     useEffect(() => {
         if (initialSearchQuery && onClearInitialSearch) {
@@ -240,25 +246,28 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, onPl
         setSearchTerm(query);
     };
 
-    const handleDownloadSong = async (song: Song) => {
-        if (!song.url || downloadingId) return;
+    const handleDownloadSong = async (songToDownload: Song) => {
+        if (!songToDownload.url || downloadingId) return;
         
-        setDownloadingId(song.id);
-        showNotification(`Downloading "${truncate(song.title, 20)}"...`, 'info', 'fa-download');
+        setDownloadingId(songToDownload.id);
+        showNotification(`Downloading "${truncate(songToDownload.title, 20)}"...`, 'info', 'fa-download');
         try {
-            const response = await fetch(song.url);
+            const response = await fetch(songToDownload.url);
             if (!response.ok) throw new Error("Network response was not ok.");
             const audioData = await response.arrayBuffer();
 
+            const existingSongInLibrary = librarySongs.find(s => s.id === songToDownload.id);
+
             const newSong: Song = {
-                ...song,
+                ...songToDownload,
+                isFavorite: existingSongInLibrary?.isFavorite || songToDownload.isFavorite || false,
                 audioData,
                 dateAdded: Date.now(),
             };
             delete newSong.url; 
 
             onAddSongs([newSong]);
-            showNotification(`"${truncate(song.title, 20)}" added!`, 'success', 'fa-check-circle');
+            showNotification(`"${truncate(newSong.title, 20)}" added!`, 'success', 'fa-check-circle');
             onNavigate('Library');
         } catch (error) {
             console.error("Download failed:", String(error));
@@ -279,6 +288,7 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, onPl
     const recentlyPlayedOnlineSongs = profile?.recentlyPlayedOnline || [];
 
     return (
+      <>
         <main className="h-full w-full home-gradient-bg flex flex-col">
             <div className="flex-shrink-0 p-4 sticky top-0 bg-[var(--bg-color)]/80 backdrop-blur-md z-10">
                 <header className="mb-4">
@@ -314,7 +324,7 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, onPl
                         ) : (
                              results.length > 0 && (
                                 <div className="space-y-2 py-2">
-                                    {results.map(song => <SongRow key={song.id} song={song} onPlay={() => onPlaySong(song, results)} onDownload={() => handleDownloadSong(song)} isDownloading={song.id === downloadingId} />)}
+                                    {results.map(song => <SongRow key={song.id} song={song} onPlay={() => onPlaySong(song, results)} onDownload={() => handleDownloadSong(song)} isDownloading={song.id === downloadingId} onOpenDetails={() => setDetailsSong(song)} />)}
                                 </div>
                             )
                         )}
@@ -356,7 +366,7 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, onPl
                                     <button onClick={() => setViewAllRecentlyPlayed(false)} className="text-sm font-bold text-[var(--primary-accent)]">Show Less</button>
                                 </div>
                                 <div className="space-y-2">
-                                    {recentlyPlayedOnlineSongs.map(song => <SongRow key={song.id} song={song} onPlay={() => onPlaySong(song, recentlyPlayedOnlineSongs)} onDownload={() => handleDownloadSong(song)} isDownloading={song.id === downloadingId} />)}
+                                    {recentlyPlayedOnlineSongs.map(song => <SongRow key={song.id} song={song} onPlay={() => onPlaySong(song, recentlyPlayedOnlineSongs)} onDownload={() => handleDownloadSong(song)} isDownloading={song.id === downloadingId} onOpenDetails={() => setDetailsSong(song)} />)}
                                 </div>
                             </section>
                         ) : (
@@ -397,6 +407,21 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, onPl
                 )}
             </div>
         </main>
+        {detailsSong && (
+            <SongDetailsModal
+                song={detailsSong}
+                onClose={() => setDetailsSong(null)}
+                isOnlineSong={true}
+                onSave={(updatedSong) => {
+                    handleDownloadSong(updatedSong);
+                    setDetailsSong(null);
+                }}
+                onSharePreview={() => {
+                    if (detailsSong) onOpenSongDetails(detailsSong);
+                }}
+            />
+        )}
+      </>
     );
 };
 

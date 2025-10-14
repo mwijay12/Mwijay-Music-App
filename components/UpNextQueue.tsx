@@ -137,9 +137,9 @@ const UpNextQueue: React.FC<UpNextQueueProps> = ({ queue, currentQueueIndex, set
                                 {isPlaying && (
                                     <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
                                         <div className="mini-visualizer">
-                                            <span />
-                                            <span />
-                                            <span />
+                                            <span style={{ animationDelay: '0.1s' }} />
+                                            <span style={{ animationDelay: '0.3s' }}/>
+                                            <span style={{ animationDelay: '0.2s' }}/>
                                         </div>
                                     </div>
                                 )}

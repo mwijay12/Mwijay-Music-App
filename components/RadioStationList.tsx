@@ -26,7 +26,7 @@ const RadioStationList: React.FC<RadioStationListProps> = ({ stations, onPlaySta
         return (
              <ul className="space-y-2">
                 {stations.map(station => (
-                    <li key={station.stationuuid} className="group flex items-center gap-4 p-2 rounded-lg hover:bg-[var(--surface-color)] transition-colors cursor-pointer" onClick={() => onPlayStation(station)}>
+                    <li key={station.stationuuid} className="idle-ui-container flex items-center gap-4 p-2 rounded-lg hover:bg-[var(--surface-color)] transition-colors cursor-pointer" onClick={() => onPlayStation(station)}>
                         <img
                             src={station.favicon || getRandomCoverArt()}
                             alt={`${station.name} logo`}
@@ -38,8 +38,8 @@ const RadioStationList: React.FC<RadioStationListProps> = ({ stations, onPlaySta
                             <p className="text-xs text-neutral-400 truncate">{station.country} &bull; {station.bitrate} kbps</p>
                         </div>
                         <button
-                            onClick={() => onPlayStation(station)}
-                            className="control-icon w-10 h-10 rounded-full bg-[var(--primary-accent)] text-black flex items-center justify-center transition-opacity focus:opacity-100"
+                            onClick={(e) => { e.stopPropagation(); onPlayStation(station); }}
+                            className="w-10 h-10 rounded-full bg-[var(--primary-accent)] text-black flex items-center justify-center idle-ui-fade"
                             aria-label={`Play ${station.name}`}
                         >
                             <i className="fas fa-play"></i>

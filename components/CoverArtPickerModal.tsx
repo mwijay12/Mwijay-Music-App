@@ -1,7 +1,4 @@
-
-
 import React, { useRef } from 'react';
-// FIX: Corrected import to use `defaultCoverArt` from `constants.ts`
 import { defaultCoverArt } from '../constants.ts';
 
 interface CoverArtPickerModalProps {

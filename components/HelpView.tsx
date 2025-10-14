@@ -38,7 +38,6 @@ const HelpView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </ul>
                     <p><strong>Reels Viewer:</strong></p>
                     <ul>
-                        {/* FIX: Corrected Reels gestures to match implementation. */}
                         <li><strong>Play/Pause:</strong> Double-tap in the center of the video to toggle play/pause. A single tap will show/hide the controls.</li>
                         <li><strong>Seek Forward/Backward:</strong> Press and hold on the right side of the video to fast-forward, or the left side to rewind.</li>
                     </ul>

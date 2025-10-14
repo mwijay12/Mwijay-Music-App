@@ -32,7 +32,7 @@ const ShareablePreviewModal: React.FC<{
                     <>
                         <div className="flex items-center gap-2 mb-4 self-start">
                             <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center font-bold text-[var(--primary-accent)]">M</div>
-                            <span className="font-semibold">Artist on Mwijay Music</span>
+                            <span className="font-semibold">Mwijay Music App</span>
                         </div>
                         <img src={song.albumArtUrl} alt={song.artist} className="w-48 h-48 rounded-full shadow-lg mb-4 object-cover" />
                         <h2 className="text-2xl font-bold text-center">{song.artist}</h2>

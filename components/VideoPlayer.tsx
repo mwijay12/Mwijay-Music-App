@@ -315,7 +315,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, onUpdate, isLibraryPla
             <button onClick={(e) => { e.stopPropagation(); onPlayAsAudio(video); }} className={`transition-opacity duration-300 ${isThisReelAudioPlaying ? 'text-[var(--primary-accent)]' : ''} ${areOtherControlsVisible ? 'opacity-100' : 'opacity-0'}`} title={isThisReelAudioPlaying ? "Stop reel audio" : "Play audio in main player"}>
                 <i className="fas fa-headphones text-2xl"></i>
             </button>
-            <button onClick={handleToggleImmersive} className={`transition-opacity duration-300 ${isImmersive ? 'opacity-40 hover:opacity-100' : (areControlsVisible ? 'opacity-100' : 'opacity-0')}`} title="Toggle immersive view">
+            <button onClick={handleToggleImmersive} className={`transition-opacity duration-300 ${isImmersive ? 'opacity-50 hover:opacity-100' : (areControlsVisible ? 'opacity-100' : 'opacity-0')}`} title="Toggle immersive view">
                 <i className="far fa-eye text-2xl"></i>
             </button>
         </div>
@@ -343,9 +343,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, onUpdate, isLibraryPla
                 onChange={handleSeekChange}
                 className="w-full video-seek-bar"
                 style={{ 
-                    backgroundImage: `linear-gradient(to right, var(--secondary-accent-start), var(--primary-accent))`,
+                    backgroundImage: `linear-gradient(to right, var(--primary-accent), var(--secondary-accent-start), var(--secondary-accent-end))`,
                     backgroundSize: `${(progress / (duration || 1)) * 100}% 100%`,
-                    backgroundRepeat: 'no-repeat'
                 }}
             />
             <div className={`justify-between items-center text-white text-xs font-mono mt-1 ${isImmersive ? 'flex' : 'hidden'}`}>

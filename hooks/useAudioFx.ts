@@ -1,5 +1,4 @@
 
-
 import { useRef, useCallback, useState } from 'react';
 import type { ProfileData } from '../types.ts';
 

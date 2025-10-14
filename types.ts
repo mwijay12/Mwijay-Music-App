@@ -147,8 +147,6 @@ export interface Reminder {
     timeoutId: number | null;
 }
 
-export type LyricsAnimation = 'scroll' | 'typewriter' | 'fade-in' | 'karaoke';
-
 // FIX: Expanded ProfileData to include all missing properties used throughout the app.
 export interface ProfileData {
     name: string;
@@ -185,7 +183,7 @@ export interface ProfileData {
         lyricsSettings: {
             fontSize: number;
             fontFamily: string;
-            animation: LyricsAnimation;
+            animation: 'scroll' | 'typewriter' | 'fade-in' | 'karaoke';
             animationSpeed: number; // 0.5 (slow) to 20 (fast)
         };
         // Consolidated Audio FX
@@ -244,9 +242,6 @@ export interface ProfileData {
         accent: string;
     };
     recentlyPlayed: string[];
-    // --- NEW: Added properties to save last playback state ---
-    lastPlayedSongId?: string;
-    lastPlayedProgress?: number;
     // --- NEW: For 'Recently Played Online' feature ---
     recentlyPlayedOnline: Song[];
     recentlyPlayedRadios: RadioStation[];

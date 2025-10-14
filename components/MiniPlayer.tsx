@@ -85,7 +85,7 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ song, isPlaying, progress, onSh
 
     if (mode === 'circular') {
         return (
-            <div className={`fixed right-4 z-50 w-14 h-14 transition-transform duration-300 ${isHidden ? 'translate-y-48' : 'translate-y-0'}`} style={{ bottom: bottomPosition }}>
+            <div className={`fixed right-4 z-40 w-14 h-14 transition-transform duration-300 ${isHidden ? 'translate-y-48' : 'translate-y-0'}`} style={{ bottom: bottomPosition }}>
                 <div 
                     onClick={handleMainClick} 
                     className="w-full h-full rounded-full bg-[var(--surface-color)]/80 backdrop-blur-md border border-white/10 shadow-lg flex items-center justify-center relative group"
@@ -101,7 +101,7 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ song, isPlaying, progress, onSh
     if (mode === 'compact') {
         const truncatedTitle = displayTitle.length > 12 ? `${displayTitle.substring(0, 12)}...` : displayTitle;
         return (
-            <div className={`fixed left-4 right-4 z-50 flex justify-center transition-transform duration-300 ${isHidden ? 'translate-y-48' : 'translate-y-0'}`} style={{ bottom: bottomPosition }}>
+            <div className={`fixed left-4 right-4 z-40 flex justify-center transition-transform duration-300 ${isHidden ? 'translate-y-48' : 'translate-y-0'}`} style={{ bottom: bottomPosition }}>
                  <div 
                     onClick={() => setMode('expanded')}
                     role="button" tabIndex={0}
@@ -124,7 +124,7 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ song, isPlaying, progress, onSh
 
     return (
         <div 
-            className={`fixed left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm flex justify-center transition-transform duration-300 ${isHidden ? 'translate-y-48' : 'translate-y-0'}`}
+            className={`fixed left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-sm flex justify-center transition-transform duration-300 ${isHidden ? 'translate-y-48' : 'translate-y-0'}`}
             style={{ bottom: bottomPosition }}
             onClick={onShowPlayer}
         >
