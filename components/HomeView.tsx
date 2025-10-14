@@ -15,8 +15,8 @@ interface HomeViewProps {
     isAssistantOpening: boolean;
 }
 
-const HorizontalSongScroller: React.FC<{title: string, songs: Song[], onPlaySong: (song: Song, context: Song[]) => void, emptyMessage?: string}> = 
-({ title, songs, onPlaySong, emptyMessage }) => {
+const HorizontalSongScroller = (
+{ title, songs, onPlaySong, emptyMessage }: {title: string, songs: Song[], onPlaySong: (song: Song, context: Song[]) => void, emptyMessage?: string}) => {
     if (songs.length === 0 && !emptyMessage) return null;
 
     const handlePlay = (song: Song) => {
@@ -46,7 +46,7 @@ const HorizontalSongScroller: React.FC<{title: string, songs: Song[], onPlaySong
 };
 
 
-const HomeView: React.FC<HomeViewProps> = ({ profile, librarySongs, onNavigate, onPlaySong, onOpenAssistant, onToggleTheme, onOpenAddMoodModal, isAssistantOpening }) => {
+const HomeView = ({ profile, librarySongs, onNavigate, onPlaySong, onOpenAssistant, onToggleTheme, onOpenAddMoodModal, isAssistantOpening }: HomeViewProps) => {
     const [selectedMood, setSelectedMood] = useState<string | null>(null);
 
     const allMoods = useMemo(() => {

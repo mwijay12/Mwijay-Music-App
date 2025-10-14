@@ -6,7 +6,7 @@ import { getRandomCoverArt } from '../constants.ts';
 
 // --- Sub-Components for VideoPlayer ---
 
-const SeekIndicator: React.FC<{direction: 'rewind' | 'forward'}> = ({ direction }) => (
+const SeekIndicator = ({direction}: {direction: 'rewind' | 'forward'}) => (
     <div className={`absolute top-1/2 -translate-y-1/2 ${direction === 'forward' ? 'right-8' : 'left-8'} z-30 pointer-events-none`}>
         <div className={`seek-indicator ${direction}`}>
             <i className={`fas fa-angle-double-${direction === 'forward' ? 'right' : 'left'}`}></i>
@@ -16,7 +16,7 @@ const SeekIndicator: React.FC<{direction: 'rewind' | 'forward'}> = ({ direction 
     </div>
 );
 
-const AssistantAwarenessChip: React.FC<{ isOnline: boolean, onClick: () => void, isVisible: boolean }> = ({ isOnline, onClick, isVisible }) => {
+const AssistantAwarenessChip = ({ isOnline, onClick, isVisible }: { isOnline: boolean, onClick: () => void, isVisible: boolean }) => {
     return (
          <div 
             className="absolute bottom-28 left-4 z-30 transition-all duration-500"
@@ -59,7 +59,7 @@ const formatTime = (seconds: number) => {
 };
 
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, onUpdate, onReelActiveChange, onToggleNavVisibility, onPlayAsAudio, nowPlaying, onUpdateProfile, profile, onPlaybackComplete, onOpenAssistant, isAssistantOnline }) => {
+const VideoPlayer = ({ video, onUpdate, onReelActiveChange, onToggleNavVisibility, onPlayAsAudio, nowPlaying, onUpdateProfile, profile, onPlaybackComplete, onOpenAssistant, isAssistantOnline }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const uiHideTimeout = useRef<number | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);

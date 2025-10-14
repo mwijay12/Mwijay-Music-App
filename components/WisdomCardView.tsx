@@ -1,4 +1,5 @@
 
+
 declare var process: any;
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import type { Song, ProfileData } from '../types.ts';
@@ -210,7 +211,7 @@ const WisdomCardView: React.FC<WisdomCardViewProps> = ({ song, isPlaying, onTogg
                              <img src={song.albumArtUrl} alt={song.title} className="w-full h-full object-cover" />
                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-6">
                                 <p className="text-sm font-semibold text-white/80 uppercase tracking-widest">{song.artist}</p>
-                                <div ref={titleContainerRef} className={`marquee-container ${isNameOverflowing ? 'is-overflowing' : ''}`}>
+                                <div ref={titleContainerRef} className={`marquee-container ${isTitleOverflowing ? 'is-overflowing' : ''}`}>
                                     <h2 ref={titleRef} className="marquee-content text-5xl font-extrabold text-white leading-tight" title={song.title}>{song.title}</h2>
                                 </div>
                             </div>

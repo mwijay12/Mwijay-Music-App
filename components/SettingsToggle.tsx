@@ -1,4 +1,3 @@
-import React from 'react';
 
 interface SettingsToggleProps {
     label: string;
@@ -7,7 +6,7 @@ interface SettingsToggleProps {
     onToggle?: () => void;
 }
 
-const SettingsToggle: React.FC<SettingsToggleProps> = ({ label, description, isChecked = false, onToggle = () => {} }) => (
+const SettingsToggle = ({ label, description, isChecked = false, onToggle = () => {} }: SettingsToggleProps) => (
     <div className="flex items-center justify-between bg-[var(--surface-color)] p-3 rounded-lg">
         <div>
             <p className="font-bold">{label}</p>

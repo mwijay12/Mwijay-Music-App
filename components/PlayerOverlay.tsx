@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import type { Song, ProfileData, RadioStation } from '../types.ts';
 import UpNextQueue from './UpNextQueue.tsx';
@@ -12,11 +13,15 @@ import WisdomCardView from './WisdomCardView.tsx';
 
 
 // --- Minimized Lyrics Sub-component ---
-const MinimizedLyricsView: React.FC<{
+const MinimizedLyricsView = ({
+    song,
+    profile,
+    onExpand
+}: {
     song: Song,
     profile: ProfileData,
     onExpand: () => void
-}> = ({ song, profile, onExpand }) => {
+}) => {
     const lyricsSettings = profile.settings.lyricsSettings;
     const lyricsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -120,11 +125,11 @@ const formatTime = (seconds: number) => {
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
 };
 
-const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
+const PlayerOverlay = ({
     isVisible, song, isPlaying, progress, duration, onClose, onTogglePlay, onNext, onPrev, onSeek, onSeekStart, onSeekEnd, onSeekBy, onToggleFavorite, playQueue, currentQueueIndex, setPlayQueue, onPlayFromQueue,
     repeatMode, isShuffled, onCycleRepeat, onToggleShuffle, onSetSleepTimer, sleepTimer, profile, onUpdateProfile, onToggleLyrics, onOpenMoodModal, onOpenEqualizer, isLyricsMinimized,
     favoriteStations, onToggleFavoriteStation, isQueueFlashing, onExitSimpleMode, visualizerColor
-}) => {
+}: PlayerOverlayProps) => {
     const [activeModal, setActiveModal] = useState<'sleep' | 'visualizer' | null>(null);
     const tapTimeoutRef = useRef<number | null>(null);
     const seekIntervalRef = useRef<number | null>(null);
@@ -156,7 +161,6 @@ const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
 
     if (!song || !profile) return null;
 
-    // FIX: Changed onToggleSongFavorite to onToggleFavorite, as suggested by the error.
     if (profile.settings.simpleMode.enabled) {
         return <WisdomCardView song={song} isPlaying={isPlaying} onTogglePlay={onTogglePlay} onNext={onNext} onPrev={onPrev} profile={profile} onUpdateProfile={onUpdateProfile} onExit={onExitSimpleMode} onToggleSongFavorite={onToggleFavorite} />;
     }

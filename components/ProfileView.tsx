@@ -1,18 +1,19 @@
 
 
+
 import React, { useState, useMemo, useRef } from 'react';
 import type { ProfileData } from '../types.ts';
 import { fonts, achievements, nameplateAnimations } from '../constants.ts';
 import SettingsToggle from './SettingsToggle.tsx';
 
-const SectionCard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
+const SectionCard = ({ title, children, className = '' }: { title: string; children?: React.ReactNode; className?: string }) => (
     <div className={`bg-[var(--surface-color)] p-6 rounded-2xl ${className}`}>
         <h2 className="text-xl font-bold mb-4 text-[var(--text-primary)]">{title}</h2>
         {children}
     </div>
 );
 
-const StatItem: React.FC<{ value: string, label: string, icon: string }> = ({ value, label, icon }) => (
+const StatItem = ({ value, label, icon }: { value: string, label: string, icon: string }) => (
     <div className="text-center">
         <i className={`fas ${icon} text-2xl text-[var(--primary-accent)] mb-2`}></i>
         <p className="text-2xl font-bold">{value}</p>
@@ -27,7 +28,7 @@ const formatListenTime = (seconds: number) => {
 };
 
 // --- Achievements View Component (as requested in screenshot) ---
-const AchievementsView: React.FC<{ profile: ProfileData; onBack: () => void }> = ({ profile, onBack }) => {
+const AchievementsView = ({ profile, onBack }: { profile: ProfileData; onBack: () => void }) => {
     const [filter, setFilter] = useState<'All' | 'Unlocked' | 'Locked'>('All');
 
     const formatDate = (timestamp: number) => new Date(timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -95,7 +96,7 @@ interface ProfileViewProps {
     onNavigate: (view: string) => void;
 }
 
-const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile, onOpenAppearance, onBack, onNavigate }) => {
+const ProfileView = ({ profile, onUpdateProfile, onOpenAppearance, onBack, onNavigate }: ProfileViewProps) => {
     const [isAchievementsVisible, setAchievementsVisible] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 

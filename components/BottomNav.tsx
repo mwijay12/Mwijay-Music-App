@@ -14,7 +14,7 @@ interface BottomNavProps {
     profile: ProfileData | null;
 }
 
-const BottomNav: React.FC<BottomNavProps> = ({ items, activeItem, onItemClick, isHidden = false, profile }) => {
+const BottomNav = ({ items, activeItem, onItemClick, isHidden = false, profile }: BottomNavProps) => {
     const { enabled, style, speed } = profile?.settings.neonGlow ?? { enabled: true, style: 'rotate', speed: 5 };
     // Slower animation for higher speed value, so we invert it. Base duration 10s.
     const animationDuration = (11 - speed) * 0.5;

@@ -1,4 +1,5 @@
 
+
 import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import type { Song, Playlist } from '../types.ts';
 import { FAVORITES_PLAYLIST_ID, getRandomCoverArt } from './constants.ts';
@@ -46,7 +47,7 @@ const useSearchHistory = (storageKey: string) => {
     return { history, addSearchTerm, clearHistory };
 };
 
-const SearchHistory: React.FC<{ history: string[]; onSelect: (term: string) => void; onClear: () => void; }> = ({ history, onSelect, onClear }) => {
+const SearchHistory = ({ history, onSelect, onClear }: { history: string[]; onSelect: (term: string) => void; onClear: () => void; }) => {
     if (history.length === 0) return null;
 
     return (
@@ -90,7 +91,7 @@ interface LibraryViewProps {
   recentlyAddedSongId: string | null;
 }
 
-const CreatePlaylistCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+const CreatePlaylistCard = ({ onClick }: { onClick: () => void }) => (
     <button onClick={onClick} className="flex-shrink-0 w-40 h-40 rounded-lg bg-[var(--chip-bg)] flex flex-col items-center justify-center text-center p-2 group transition-all duration-300 hover:bg-[var(--surface-color)]" title="Create a new playlist">
         <div className="w-16 h-16 rounded-full bg-[var(--primary-accent)]/20 flex items-center justify-center transition-transform group-hover:scale-110">
             <i className="fas fa-plus text-3xl text-[var(--primary-accent)]"></i>
@@ -100,7 +101,7 @@ const CreatePlaylistCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
 );
 
 
-const LibraryView: React.FC<LibraryViewProps> = ({ songs, playlists, onAddSongs, onUpdateSong, onPlaySong, onAddToQueue, onCreatePlaylist, onViewPlaylist, onDeletePlaylist, showNotification, onOpenSongDetails, onViewArtist, onOpenPlaylistManager, onDeleteSong, onPlayPlaylistRadio, recentlyAddedSongId }) => {
+const LibraryView = ({ songs, playlists, onAddSongs, onUpdateSong, onPlaySong, onAddToQueue, onCreatePlaylist, onViewPlaylist, onDeletePlaylist, showNotification, onOpenSongDetails, onViewArtist, onOpenPlaylistManager, onDeleteSong, onPlayPlaylistRadio, recentlyAddedSongId }: LibraryViewProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [activePlaylistMenu, setActivePlaylistMenu] = useState<string | null>(null);

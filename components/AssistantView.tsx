@@ -18,7 +18,7 @@ interface AssistantViewProps {
   toggleOnlineMode: () => void;
 }
 
-const AssistantView: React.FC<AssistantViewProps> = ({ messages, onSendMessage, onClose, onToggleInputView, isInputVisible, profile, showNotification, isOnline, toggleOnlineMode }) => {
+const AssistantView = ({ messages, onSendMessage, onClose, onToggleInputView, isInputVisible, profile, showNotification, isOnline, toggleOnlineMode }: AssistantViewProps) => {
   const [inputText, setInputText] = useState('');
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);

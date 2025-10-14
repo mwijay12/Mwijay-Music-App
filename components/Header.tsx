@@ -13,7 +13,7 @@ interface HeaderProps {
     onToggleTheme: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ profile, greetingText, greetingEmoji, onAvatarClick, onOpenCreateView, onToggleTheme }) => {
+const Header = ({ profile, greetingText, greetingEmoji, onAvatarClick, onOpenCreateView, onToggleTheme }: HeaderProps) => {
     const nameplateFontFamily = fonts.find(f => f.name === profile.nameplateFont)?.family || "'Satoshi', sans-serif";
     const displayName = profile.name;
     const nameplateAnimationClass = `name-anim-${profile.settings.nameplateAnimation || 'none'}`;

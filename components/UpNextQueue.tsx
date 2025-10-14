@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import type { Song } from '../types.ts';
 
@@ -10,7 +11,7 @@ interface UpNextQueueProps {
     isFlashing?: boolean;
 }
 
-const UpNextQueue: React.FC<UpNextQueueProps> = ({ queue, currentQueueIndex, setPlayQueue, onPlayFromQueue, isFlashing }) => {
+const UpNextQueue = ({ queue, currentQueueIndex, setPlayQueue, onPlayFromQueue, isFlashing }: UpNextQueueProps) => {
     const [draggedItem, setDraggedItem] = useState<Song | null>(null);
     const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
     const sortMenuRef = useRef<HTMLDivElement>(null);

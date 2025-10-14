@@ -1,10 +1,9 @@
-import React from 'react';
 
 interface DiscoverCardProps {
     onOpenAssistant: () => void;
 }
 
-const DiscoverCard: React.FC<DiscoverCardProps> = ({ onOpenAssistant }) => {
+const DiscoverCard = ({ onOpenAssistant }: DiscoverCardProps) => {
     return (
         <div className="relative bg-[var(--surface-color)] p-4 rounded-2xl flex justify-between items-center">
             <div>

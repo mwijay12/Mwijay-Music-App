@@ -8,7 +8,7 @@ interface MusicianToolsProps {
     audioRef: React.RefObject<HTMLAudioElement>;
 }
 
-const MusicianTools: React.FC<MusicianToolsProps> = ({ tools, setTools, onClose, audioRef }) => {
+const MusicianTools = ({ tools, setTools, onClose, audioRef }: MusicianToolsProps) => {
     const metronomeAudioRef = useRef<HTMLAudioElement | null>(null);
     const metronomeIntervalRef = useRef<number | null>(null);
 

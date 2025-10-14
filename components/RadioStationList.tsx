@@ -1,6 +1,6 @@
 
 
-import React from 'react';
+
 import type { RadioStation } from '../types.ts';
 import { getRandomCoverArt } from '../constants.ts';
 
@@ -10,7 +10,7 @@ interface RadioStationListProps {
     error: string | null;
 }
 
-const RadioStationList: React.FC<RadioStationListProps> = ({ stations, onPlayStation, error }) => {
+const RadioStationList = ({ stations, onPlayStation, error }: RadioStationListProps) => {
 
     if (error) {
         return (

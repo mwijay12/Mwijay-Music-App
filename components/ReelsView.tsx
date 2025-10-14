@@ -22,7 +22,7 @@ interface ReelsViewProps {
     initialVideoId?: string | null;
 }
 
-const ReelsView: React.FC<ReelsViewProps> = ({
+const ReelsView = ({
     videos,
     reelPlaylists,
     onUpdate,
@@ -39,7 +39,7 @@ const ReelsView: React.FC<ReelsViewProps> = ({
     isAssistantOnline,
     onViewReelPlaylist,
     initialVideoId,
-}) => {
+}: ReelsViewProps) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isManaging, setIsManaging] = useState(false);
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0);

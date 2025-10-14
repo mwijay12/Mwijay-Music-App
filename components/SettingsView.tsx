@@ -1,9 +1,11 @@
 
+
+
 import React from 'react';
 import SettingsToggle from './SettingsToggle.tsx';
 import type { ProfileData } from '../types.ts';
 
-const SettingsSection: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
+const SettingsSection = ({ title, children, className = '' }: { title: string; children?: React.ReactNode; className?: string }) => (
     <section className={`mb-6 ${className}`}>
         <h2 className="text-lg font-bold mb-3 text-neutral-400 border-b border-[var(--chip-bg)] pb-2">{title}</h2>
         <div className="space-y-4">{children}</div>
@@ -17,7 +19,7 @@ interface SettingsViewProps {
     onNavigate: (view: string) => void;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ profile, onUpdateProfile, onOpenNeonGlowModal, onNavigate }) => {
+const SettingsView = ({ profile, onUpdateProfile, onOpenNeonGlowModal, onNavigate }: SettingsViewProps) => {
     
     const handleToggle = () => {
         onUpdateProfile(p => ({

@@ -10,7 +10,7 @@ import RadioLoader from './RadioLoader.tsx';
 import { fetchRadioAPI } from './db.ts';
 import { getRandomCoverArt } from '../constants.ts';
 
-const CosmicSearchBar: React.FC<{ value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; onSearch: (term: string) => void }> = ({ value, onChange, onSearch }) => {
+const CosmicSearchBar = ({ value, onChange, onSearch }: { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; onSearch: (term: string) => void }) => {
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
             onSearch(value);
@@ -31,7 +31,7 @@ const CosmicSearchBar: React.FC<{ value: string; onChange: (e: React.ChangeEvent
     );
 };
 
-const HubCard: React.FC<{ title: string, icon: string, onClick: () => void, isManagement?: boolean }> = ({ title, icon, onClick, isManagement = false }) => (
+const HubCard = ({ title, icon, onClick, isManagement = false }: { title: string, icon: string, onClick: () => void, isManagement?: boolean }) => (
     <button onClick={onClick} className={`bg-[var(--surface-color)] p-4 rounded-xl flex items-center justify-center gap-4 text-left transition-transform hover:scale-105 w-full ${isManagement ? 'bg-gradient-to-r from-[var(--secondary-accent-start)]/30 to-[var(--secondary-accent-end)]/30' : ''}`} title={`Browse ${title}`}>
         <i className={`fas ${icon} text-2xl text-[var(--primary-accent)] w-8 text-center`}></i>
         <div className="flex-1">
@@ -41,8 +41,7 @@ const HubCard: React.FC<{ title: string, icon: string, onClick: () => void, isMa
     </button>
 );
 
-const HorizontalStationScroller: React.FC<{title: string, stations: RadioStation[], onPlayStation: (station: RadioStation) => void}> = 
-({ title, stations, onPlayStation }) => {
+const HorizontalStationScroller = ({ title, stations, onPlayStation }: {title: string, stations: RadioStation[], onPlayStation: (station: RadioStation) => void}) => {
     if (!stations || stations.length === 0) return null;
 
     return (
@@ -71,7 +70,7 @@ interface RadioViewProps {
     onNavigate: (view: string) => void;
 }
 
-const RadioView: React.FC<RadioViewProps> = ({ profile, onPlayStation, favoriteStations, onToggleFavorite, radioPlaylists, onUpdateRadioPlaylists, onNavigate }) => {
+const RadioView = ({ profile, onPlayStation, favoriteStations, onToggleFavorite, radioPlaylists, onUpdateRadioPlaylists, onNavigate }: RadioViewProps) => {
     const [view, setView] = useState<'hub' | 'station_list' | 'playlists'>('hub');
     const [stationList, setStationList] = useState<RadioStation[]>([]);
     const [listTitle, setListTitle] = useState('');

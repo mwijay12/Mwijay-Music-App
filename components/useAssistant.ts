@@ -45,7 +45,6 @@ interface AppControls {
     setBackgroundEffect: (enabled: boolean, style?: ProfileData['settings']['backgroundEffects']['style']) => void;
     searchOnlineMusic: (query: string) => void;
     playAiPlaylist: () => void;
-    // FIX: Add missing `toggleShuffle` and `cycleRepeat` to satisfy CommandContext
     toggleShuffle: () => void;
     cycleRepeat: () => void;
 }
@@ -210,7 +209,6 @@ const functionDeclarations: FunctionDeclaration[] = [
     description: 'Generates a new playlist based on the user\'s listening history and starts playing it. Use this for general requests like "play something I would like" or "make a playlist for me".',
     parameters: { type: Type.OBJECT, properties: {} }
   },
-  // FIX: Add missing function declarations
   {
     name: 'toggleShuffle',
     description: 'Toggles shuffle mode for the current playlist or queue.',
@@ -412,7 +410,6 @@ ${systemContext}
                                 controls.playPrev();
                                 confirmationText = "Going back to the previous track.";
                                 break;
-                            // FIX: Add missing switch cases for shuffle and repeat.
                             case 'toggleShuffle':
                                 controls.toggleShuffle();
                                 confirmationText = "Toggled shuffle mode.";

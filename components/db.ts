@@ -1,4 +1,5 @@
 
+
 import type { Song, Playlist, ProfileData, Video, ReelPlaylist, RadioPlaylist, RadioStation, Artist, Reminder } from '../types.ts';
 import { user, getRandomCoverArt } from '../constants.ts'; // For default profile
 
@@ -189,7 +190,8 @@ export const getProfile = async (): Promise<ProfileData> => {
     const profile = await dbRequest<ProfileData | undefined>('profile', 'readonly', store => store.get('userProfile'));
     if (profile) {
         // Sets are not stored in IndexedDB, so we need to reconstruct them
-        const features = profile.usedFeatures || {};
+        // FIX: Cast features to `any` to avoid type errors when `profile.usedFeatures` is undefined from an older schema.
+        const features: any = profile.usedFeatures || {};
         profile.usedFeatures = {
             themes: new Set(Array.isArray(features.themes) ? features.themes : []),
             fonts: new Set(Array.isArray(features.fonts) ? features.fonts : []),

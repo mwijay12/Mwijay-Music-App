@@ -5,7 +5,7 @@ interface CreativeEffectsProps {
     audioRef: React.RefObject<HTMLAudioElement>;
 }
 
-const CreativeEffects: React.FC<CreativeEffectsProps> = ({ onClose, audioRef }) => {
+const CreativeEffects = ({ onClose, audioRef }: CreativeEffectsProps) => {
     const [filterValue, setFilterValue] = useState(0); // -1 for LPF, 0 for neutral, 1 for HPF
     const audioContextRef = useRef<AudioContext | null>(null);
     const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
@@ -75,27 +75,4 @@ const CreativeEffects: React.FC<CreativeEffectsProps> = ({ onClose, audioRef }) 
          <div className="absolute inset-x-4 bottom-24 bg-black/80 backdrop-blur-md p-4 rounded-xl z-20" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-lg">Creative Filter</h3>
-                <button onClick={onClose}><i className="fas fa-times"></i></button>
-            </div>
-
-            <div className="bg-white/10 p-3 rounded-lg">
-                <div className="flex justify-between text-xs font-bold text-neutral-300 mb-2">
-                    <span>Muffled</span>
-                    <span>Neutral</span>
-                    <span>Thin</span>
-                </div>
-                 <input 
-                    type="range" 
-                    min="-1" 
-                    max="1" 
-                    step="0.05" 
-                    value={filterValue} 
-                    onChange={handleFilterChange} 
-                    className="w-full"
-                />
-            </div>
-        </div>
-    );
-};
-
-export default CreativeEffects;
+                <button onClick={onClose}><i className="fas fa-times"></i></

@@ -1,4 +1,3 @@
-import React from 'react';
 import type { RadioCategory } from '../types.ts';
 
 interface RadioCategoryBrowserProps {
@@ -6,7 +5,7 @@ interface RadioCategoryBrowserProps {
     onSelectCategory: (category: RadioCategory) => void;
 }
 
-const RadioCategoryBrowser: React.FC<RadioCategoryBrowserProps> = ({ categories, onSelectCategory }) => {
+const RadioCategoryBrowser = ({ categories, onSelectCategory }: RadioCategoryBrowserProps) => {
     return (
         <div className="h-full w-full overflow-y-auto scroll-container p-6 pb-40">
             <header className="mb-8">

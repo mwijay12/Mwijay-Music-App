@@ -14,7 +14,7 @@ interface MiniPlayerProps {
 
 type DisplayMode = 'expanded' | 'compact' | 'circular';
 
-const MiniPlayer: React.FC<MiniPlayerProps> = ({ song, isPlaying, onShowPlayer, onTogglePlay, onToggleFavorite, onNext, isHidden = false }) => {
+const MiniPlayer = ({ song, isPlaying, onShowPlayer, onTogglePlay, onToggleFavorite, onNext, isHidden = false }: MiniPlayerProps) => {
     const [mode, setMode] = useState<DisplayMode>('expanded');
     const interactionTimeout = useRef<number | null>(null);
     const titleContainerRef = useRef<HTMLDivElement>(null);
