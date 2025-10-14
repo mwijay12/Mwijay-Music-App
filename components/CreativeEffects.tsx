@@ -75,4 +75,32 @@ const CreativeEffects = ({ onClose, audioRef }: CreativeEffectsProps) => {
          <div className="absolute inset-x-4 bottom-24 bg-black/80 backdrop-blur-md p-4 rounded-xl z-20" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-lg">Creative Filter</h3>
-                <button onClick={onClose}><i className="fas fa-times"></i></
+                <button onClick={onClose}><i className="fas fa-times"></i></button>
+            </div>
+            <div className="space-y-4">
+                <div>
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="font-bold text-sm">Filter</label>
+                        <span className="text-xs font-mono text-[var(--primary-accent)]">{filterValue > 0.05 ? 'High-Pass' : filterValue < -0.05 ? 'Low-Pass' : 'Neutral'}</span>
+                    </div>
+                    <input 
+                        type="range" 
+                        min="-1" 
+                        max="1" 
+                        step="0.05" 
+                        value={filterValue} 
+                        onChange={handleFilterChange} 
+                        className="w-full themed-slider" 
+                        style={{ backgroundSize: `${((filterValue + 1) / 2) * 100}% 100%` }} 
+                    />
+                     <div className="flex justify-between text-xs text-neutral-400 mt-1">
+                        <span>Muffled</span>
+                        <span>Thin</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default CreativeEffects;
