@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { Video, ReelPlaylist } from '../types.ts';
-import { getRandomCoverArt } from '../constants.ts';
+import { getRandomCoverArt } from './constants.ts';
 import CoverArtPickerModal from './CoverArtPickerModal.tsx';
 
 interface CreateReelPlaylistModalProps {

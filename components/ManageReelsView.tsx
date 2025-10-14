@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Video, ReelPlaylist } from '../types.ts';
 import CreateReelPlaylistModal from './CreateReelPlaylistModal.tsx';
 import CoverArtPickerModal from './CoverArtPickerModal.tsx';
-import { getRandomCoverArt } from '../constants.ts';
+import { getRandomCoverArt } from './constants.ts';
 
 
 // --- Sub-component: EditReelModal ---
@@ -66,7 +66,7 @@ const MiniPreview: React.FC<{ video: Video }> = ({ video }) => {
         const videoEl = videoRef.current;
         if (!videoEl) return;
         const observer = new IntersectionObserver(([entry]) => {
-            if (entry.isIntersecting) videoEl.play().catch(e => {});
+            if (entry.isIntersecting) videoEl.play().catch(() => {});
             else videoEl.pause();
         }, { threshold: 0.5 });
         observer.observe(videoEl);

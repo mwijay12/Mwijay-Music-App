@@ -1,8 +1,6 @@
-
-
 import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import type { Song, Playlist } from '../types.ts';
-import { FAVORITES_PLAYLIST_ID, getRandomCoverArt } from '../constants.ts';
+import { FAVORITES_PLAYLIST_ID, getRandomCoverArt } from './constants.ts';
 import SongDetailsModal from './SongDetailsModal.tsx';
 import SongListItem from './SongListItem.tsx';
 
@@ -80,7 +78,6 @@ interface LibraryViewProps {
   onPlaySong: (song: Song, context: Song[]) => void;
   onAddToQueue: (song: Song) => void;
   onCreatePlaylist: () => void;
-  onToggleFavorite: (songId: string) => void;
   onViewPlaylist: (playlistId: string) => void;
   onDeletePlaylist: (playlistId: string) => void;
   showNotification: (message: string, type?: 'success' | 'info' | 'error') => void;
@@ -102,9 +99,7 @@ const CreatePlaylistCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
 );
 
 
-const truncate = (str: string, len: number) => str.length > len ? `${str.substring(0, len)}...` : str;
-
-const LibraryView: React.FC<LibraryViewProps> = ({ songs, playlists, onAddSongs, onUpdateSong, onPlaySong, onAddToQueue, onCreatePlaylist, onToggleFavorite, onViewPlaylist, onDeletePlaylist, showNotification, onOpenSongDetails, onViewArtist, onOpenPlaylistManager, onDeleteSong, onPlayPlaylistRadio, recentlyAddedSongId }) => {
+const LibraryView: React.FC<LibraryViewProps> = ({ songs, playlists, onAddSongs, onUpdateSong, onPlaySong, onAddToQueue, onCreatePlaylist, onViewPlaylist, onDeletePlaylist, showNotification, onOpenSongDetails, onViewArtist, onOpenPlaylistManager, onDeleteSong, onPlayPlaylistRadio, recentlyAddedSongId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [activePlaylistMenu, setActivePlaylistMenu] = useState<string | null>(null);
@@ -153,7 +148,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ songs, playlists, onAddSongs,
         case 'artist-desc':
             return filtered.sort((a, b) => b.artist.localeCompare(a.artist));
         case 'date-oldest':
-            return filtered.sort((a, b) => (a.dateAdded || 0) - (a.dateAdded || 0));
+            return filtered.sort((a, b) => (a.dateAdded || 0) - (b.dateAdded || 0));
         case 'date-newest':
         default:
             return filtered.sort((a, b) => (b.dateAdded || 0) - (a.dateAdded || 0));

@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { defaultCoverArt } from '../constants.ts';
+import { defaultCoverArt } from './constants.ts';
 
 interface CoverArtPickerModalProps {
     onClose: () => void;

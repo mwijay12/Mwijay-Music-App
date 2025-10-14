@@ -1,5 +1,6 @@
+declare var process: any;
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import { AnimatePresence } from 'framer-motion';
 import HomeView from './HomeView';
 import ReelsView from './ReelsView';
@@ -26,7 +27,6 @@ import AnalyticsView from './AnalyticsView';
 import WisdomCardView from './WisdomCardView';
 import AddWisdomModal from './AddWisdomModal';
 import AddMoodModal from './AddMoodModal';
-// FIX: Corrected import path for OnlineDiscoveryView. It is in the same directory.
 import OnlineDiscoveryView from './OnlineDiscoveryView';
 import ArtistView from './ArtistView';
 import ManageRadioHubView from './ManageRadioHubView';
@@ -38,10 +38,12 @@ import PlaylistView from './PlaylistView';
 import ReelPlaylistView from './ReelPlaylistView';
 import RingtoneMakerModal from './RingtoneMakerModal';
 import { MultiStepLoader } from './MultiStepLoader';
-import { useAssistant } from '../hooks/useAssistant.ts';
-import { useAudioFx } from '../hooks/useAudioFx.ts';
-import { initDB, getSongs, saveSongs, getPlaylists, savePlaylists, getProfile, saveProfile, getVideos, saveVideos, getReelPlaylists, saveReelPlaylists, getPlayQueue, savePlayQueue, getRadioPlaylists, saveRadioPlaylists, getArtists, saveArtist, fetchRadioAPI, fetchFromAudius, fetchFromArchive, fetchFromJamendo } from './db';
-import { navItems, themePairs as themes, fonts, achievements, FAVORITES_PLAYLIST_ID, allWisdom, getRandomCoverArt, defaultMoods } from '../constants';
+import { useAssistant } from './useAssistant';
+import { useAudioFx } from '../hooks/useAudioFx';
+// FIX: Added missing imports for fetchFromJamendo and fetchFromAudius
+import { initDB, getSongs, saveSongs, getPlaylists, savePlaylists, getProfile, saveProfile, getVideos, saveVideos, getReelPlaylists, saveReelPlaylists, getPlayQueue, savePlayQueue, getRadioPlaylists, saveRadioPlaylists, getArtists, saveArtist, fetchRadioAPI, fetchFromJamendo, fetchFromAudius } from './db';
+// FIX: Added missing import for getRandomCoverArt
+import { navItems, themePairs as themes, fonts, achievements, FAVORITES_PLAYLIST_ID, defaultMoods, getRandomCoverArt } from './constants';
 import type { Song, RadioStation, Notification as NotificationType, Playlist, ProfileData, Achievement, Video, ThemeColors, ReelPlaylist, RadioPlaylist, Artist, ThemePair } from '../types';
 
 
@@ -399,7 +401,6 @@ const App = () => {
   const [sleepTimer, setSleepTimer] = useState<{ mode: 'off' | 'duration' | 'songs'; value: number, timeoutId: number | null, songCount: number, endTime?: number }>({ mode: 'off', value: 0, timeoutId: null, songCount: 0 });
   const [isLyricsVisible, setIsLyricsVisible] = useState(false);
   const [isLyricsMinimized, setIsLyricsMinimized] = useState(false);
-  const [isReelViewActive, setIsReelViewActive] = useState(false);
   const [isBottomNavHidden, setIsBottomNavHidden] = useState(false);
   const [viewHistory, setViewHistory] = useState(['Home']);
   const [artistToView, setArtistToView] = useState<string | null>(null);
@@ -1053,7 +1054,6 @@ const App = () => {
         }
     }, [nowPlaying, activeAudio]);
 
-  // FIX: Added missing handlePlayPlaylistRadio function.
   const handlePlayPlaylistRadio = useCallback((playlist: Playlist) => {
       const playlistSongs = playlist.songIds.map(id => librarySongs.find(s => s.id === id)).filter((s): s is Song => !!s);
       if (playlistSongs.length === 0) {
@@ -1151,7 +1151,7 @@ const App = () => {
           contents: prompt,
           config: { responseMimeType: "application/json" }
       });
-      const aiResponse = JSON.parse(response.text.trim());
+      const aiResponse = JSON.parse((response.text || '').trim());
 
       const playlistName = aiResponse?.playlistName || "AI Generated Playlist";
       const songStrings: string[] = Array.isArray(aiResponse?.songs) ? aiResponse.songs : [];
@@ -1164,8 +1164,8 @@ const App = () => {
         if (results.length > 0) return results[0];
         results = await fetchFromAudius(query, 1, 1);
         if (results.length > 0) return results[0];
-        results = await fetchFromArchive(query, 1, 1);
-        if (results.length > 0) return results[0];
+        // results = await fetchFromArchive(query, 1, 1);
+        // if (results.length > 0) return results[0];
         return null;
       }))).filter((s): s is Song => !!s);
       
@@ -1608,8 +1608,11 @@ useEffect(() => {
   }, [achievementsToShow, showNotification]);
 
     const handleReelActiveChange = useCallback((isActive: boolean) => {
-        setIsReelViewActive(isActive);
-    }, []);
+        const audio = activeAudio === 'primary' ? audioRef.current : secondaryAudioRef.current;
+        if(isActive && isPlaying && audio) {
+            audio.pause();
+        }
+    }, [isPlaying, activeAudio]);
 
     const handleToggleNavVisibility = useCallback((isHidden: boolean) => {
         setIsBottomNavHidden(isHidden);
@@ -1621,12 +1624,6 @@ useEffect(() => {
         setInitialReelId(videoId);
         setTimeout(() => setInitialReelId(null), 500);
     }, []);
-
-  const isVibrantTheme = useMemo(() => {
-      if (!profile) return false;
-      const theme = themes.find(t => t.name === profile.activeThemePair);
-      return theme?.category === 'Vibrant';
-  }, [profile?.activeThemePair]);
 
   const renderCurrentView = () => {
     const playlistToView = playlistToViewId ? playlists.find(p => p.id === playlistToViewId) : null;
@@ -1671,7 +1668,6 @@ useEffect(() => {
             showNotification("Song deleted from library.", 'success');
         }} onPlayPlaylistRadio={handlePlayPlaylistRadio} recentlyAddedSongId={recentlyAddedSongId} />;
         case 'Reels': return <ReelsView videos={videos} reelPlaylists={reelPlaylists} onUpdate={setVideos} onUpdateReelPlaylists={setReelPlaylists} isLibraryPlaying={isPlaying && !nowPlaying?.isFromReel} onReelActiveChange={handleReelActiveChange} showNotification={showNotification} onToggleNavVisibility={handleToggleNavVisibility} profile={profile!} onUpdateProfile={updateProfile} onPlayReelAsAudio={handlePlayReelAsAudio} nowPlaying={nowPlaying} onOpenAssistant={handleOpenAssistant} isAssistantOnline={isAssistantOnline} onViewReelPlaylist={setReelPlaylistToViewId} initialVideoId={initialReelId} />;
-        // FIX: Passed the correct state setter 'setRadioPlaylists' to the 'onUpdateRadioPlaylists' prop.
         case 'Radio': return <RadioView profile={profile} onPlayStation={handlePlayStation} favoriteStations={profile?.favoriteRadioStations || []} onToggleFavorite={(station) => updateProfile(p => ({ ...p, favoriteRadioStations: (p.favoriteRadioStations || []).some(s => s.stationuuid === station.stationuuid) ? (p.favoriteRadioStations || []).filter(s => s.stationuuid !== station.stationuuid) : [...(p.favoriteRadioStations || []), station] }))} radioPlaylists={radioPlaylists} onUpdateRadioPlaylists={setRadioPlaylists} showNotification={showNotification} onNavigate={handleNavigate} />;
         case 'Settings': return <SettingsView profile={profile!} onUpdateProfile={updateProfile} onOpenNeonGlowModal={() => setActiveModal('neon_glow')} onNavigate={handleNavigate} />;
         case 'Create': return <CreateView librarySongs={librarySongs} onUpdateSong={handleUpdateSong} showNotification={showNotification} onGenerate={() => checkAchievements(profile!, 'ai-lyricist', 1)} />;
@@ -1803,7 +1799,7 @@ useEffect(() => {
         </AnimatePresence>
 
         {activeModal === 'create_playlist' && <CreatePlaylistModal songs={librarySongs} onClose={() => setActiveModal(null)} onSave={(playlist) => { setPlaylists(p => [...p, playlist]); setActiveModal(null); showNotification('Playlist created!', 'success'); }} />}
-        {activeModal === 'mood' && nowPlaying && <MoodEmojiModal song={nowPlaying} onClose={() => setActiveModal(null)} onSetMood={(songId, emoji) => handleUpdateSong({ ...nowPlaying, moodEmoji: emoji })} onAddMood={() => { setActiveModal('add_mood'); }} allMoods={[...defaultMoods, ...(profile.customMoods || [])]} />}
+        {activeModal === 'mood' && nowPlaying && <MoodEmojiModal song={nowPlaying} onClose={() => setActiveModal(null)} onSetMood={(_songId, emoji) => handleUpdateSong({ ...nowPlaying, moodEmoji: emoji })} onAddMood={() => { setActiveModal('add_mood'); }} allMoods={[...defaultMoods, ...(profile.customMoods || [])]} />}
         {activeModal === 'add_mood' && <AddMoodModal onClose={() => setActiveModal(null)} onSave={(mood) => updateProfile(p => ({ ...p, customMoods: [...(p.customMoods || []), mood] }))} />}
         {activeModal === 'add_wisdom' && <AddWisdomModal onClose={() => setActiveModal(null)} onSave={(wisdom) => updateProfile(p => ({ ...p, customWisdom: [...(p.customWisdom || []), wisdom] }))} />}
         {activeModal === 'equalizer' && nowPlaying && <EqualizerModal profile={profile} song={nowPlaying} onClose={() => setActiveModal(null)} onUpdateProfile={updateProfile} onUpdateSong={handleUpdateSong} showNotification={showNotification} />}

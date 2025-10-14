@@ -1,3 +1,4 @@
+declare var process: any;
 import React, { useState, useMemo } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import type { Song } from '../types.ts';
@@ -5,10 +6,9 @@ import type { Song } from '../types.ts';
 // SaveLyricsModal sub-component
 const SaveLyricsModal: React.FC<{
     songs: Song[];
-    lyricsToSave: string;
     onSave: (songId: string) => void;
     onClose: () => void;
-}> = ({ songs, lyricsToSave, onSave, onClose }) => {
+}> = ({ songs, onSave, onClose }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const filteredSongs = useMemo(() =>
         songs.filter(s => s.title.toLowerCase().includes(searchTerm.toLowerCase()) || s.artist.toLowerCase().includes(searchTerm.toLowerCase())),
@@ -106,7 +106,7 @@ const CreateView: React.FC<CreateViewProps> = ({ librarySongs, onUpdateSong, sho
                     systemInstruction: "You are a professional songwriter. Write clear, creative, and well-structured lyrics based on the user's prompt. Format the lyrics with verse and chorus labels like [Verse 1], [Chorus], etc. Do not include any other commentary or introductory text.",
                 }
             });
-            setGeneratedLyrics(response.text.trim());
+            setGeneratedLyrics((response.text || '').trim());
             onGenerate(); // Trigger achievement check
         } catch (error) {
             console.error("Error generating lyrics:", String(error));
@@ -184,7 +184,6 @@ const CreateView: React.FC<CreateViewProps> = ({ librarySongs, onUpdateSong, sho
             {isSaveModalOpen && (
                 <SaveLyricsModal
                     songs={librarySongs}
-                    lyricsToSave={generatedLyrics}
                     onSave={handleSaveToSong}
                     onClose={() => setIsSaveModalOpen(false)}
                 />

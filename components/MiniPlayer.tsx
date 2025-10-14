@@ -4,7 +4,6 @@ import type { Song } from '../types.ts';
 interface MiniPlayerProps {
     song: Song;
     isPlaying: boolean;
-    progress: number;
     onTogglePlay: () => void;
     onShowPlayer: () => void;
     onToggleFavorite: () => void;
@@ -14,7 +13,7 @@ interface MiniPlayerProps {
 
 type DisplayMode = 'expanded' | 'compact' | 'circular';
 
-const MiniPlayer: React.FC<MiniPlayerProps> = ({ song, isPlaying, progress, onShowPlayer, onTogglePlay, onToggleFavorite, onNext, isHidden = false }) => {
+const MiniPlayer: React.FC<MiniPlayerProps> = ({ song, isPlaying, onShowPlayer, onTogglePlay, onToggleFavorite, onNext, isHidden = false }) => {
     const [mode, setMode] = useState<DisplayMode>('expanded');
     const interactionTimeout = useRef<number | null>(null);
     const titleContainerRef = useRef<HTMLDivElement>(null);

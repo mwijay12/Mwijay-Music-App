@@ -1,13 +1,8 @@
-
-
-
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import type { ChatMessage, ProfileData } from '../types.ts';
 import TypingIndicator from './TypingIndicator.tsx';
 import TextGenerateEffect from './TextGenerateEffect.tsx';
-import { assistantPrompts } from '../constants.ts';
+import { assistantPrompts } from './constants.ts';
 
 declare const webkitSpeechRecognition: any;
 
@@ -172,7 +167,7 @@ const AssistantView: React.FC<AssistantViewProps> = ({ messages, onSendMessage, 
               <div className="prompt-scroller">
                 <div className="prompt-scroller-content">
                     {assistantPrompts.map(p => (
-                        <button key={p} onClick={() => onSendMessage(p)} className="bg-[var(--chip-bg)] py-1.5 px-3 rounded-full text-sm hover:bg-[var(--surface-color)]">"{p}"</button>
+                        <button key={p} onClick={() => onSendMessage(p, undefined)} className="bg-[var(--chip-bg)] py-1.5 px-3 rounded-full text-sm hover:bg-[var(--surface-color)]">"{p}"</button>
                     ))}
                 </div>
               </div>
