@@ -13,6 +13,7 @@ interface HomeViewProps {
     onToggleTheme: () => void;
     onOpenAddMoodModal: () => void;
     isAssistantOpening: boolean;
+    isAiDisabled?: boolean;
 }
 
 const HorizontalSongScroller = (
@@ -46,7 +47,7 @@ const HorizontalSongScroller = (
 };
 
 
-const HomeView = ({ profile, librarySongs, onNavigate, onPlaySong, onOpenAssistant, onToggleTheme, onOpenAddMoodModal, isAssistantOpening }: HomeViewProps) => {
+const HomeView = ({ profile, librarySongs, onNavigate, onPlaySong, onOpenAssistant, onToggleTheme, onOpenAddMoodModal, isAssistantOpening, isAiDisabled }: HomeViewProps) => {
     const [selectedMood, setSelectedMood] = useState<string | null>(null);
 
     const allMoods = useMemo(() => {
@@ -129,9 +130,11 @@ const HomeView = ({ profile, librarySongs, onNavigate, onPlaySong, onOpenAssista
                 />
             )}
 
-            <section className="mb-8 flex justify-center items-center py-4">
-                <MwijayAssistantButton onClick={onOpenAssistant} isOpening={isAssistantOpening} />
-            </section>
+            {!isAiDisabled && (
+                <section className="mb-8 flex justify-center items-center py-4">
+                    <MwijayAssistantButton onClick={onOpenAssistant} isOpening={isAssistantOpening} />
+                </section>
+            )}
             
             <HorizontalSongScroller
                 title="Recently Played"

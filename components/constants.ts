@@ -427,9 +427,9 @@ export const achievements: Achievement[] = BASE_ACHIEVEMENTS.map(base => {
             case 'upload10': return type === 'songsUploaded' && value >= 10;
             case 'upload50': return type === 'songsUploaded' && value >= 50;
             case 'upload250': return type === 'songsUploaded' && value >= 250;
-            case 'favorite1': return librarySongs.filter(s => s.isFavorite).length >= 1;
-            case 'favorite25': return librarySongs.filter(s => s.isFavorite).length >= 25;
-            case 'favorite100': return librarySongs.filter(s => s.isFavorite).length >= 100;
+            case 'favorite1': return librarySongs.filter((s: Song) => s.isFavorite).length >= 1;
+            case 'favorite25': return librarySongs.filter((s: Song) => s.isFavorite).length >= 25;
+            case 'favorite100': return librarySongs.filter((s: Song) => s.isFavorite).length >= 100;
             case 'digital-digger': return (profile.analytics.songsDownloaded || 0) >= 10;
             case 'perfectionist': return (profile.analytics.songsEdited || 0) >= 10;
             

@@ -371,25 +371,6 @@ const fadeAudio = (audio: HTMLAudioElement, targetVolume: number, duration: numb
     requestAnimationFrame(animateFade);
 };
 
-const ApiKeyErrorScreen: React.FC = () => (
-  <div className="h-full w-full flex flex-col items-center justify-center bg-[#1e0000] text-white p-8 text-center">
-    <i className="fas fa-exclamation-triangle text-5xl text-red-400 mb-6"></i>
-    <h1 className="text-3xl font-bold mb-4">Configuration Error</h1>
-    <p className="max-w-md mb-6">
-      The application has failed to start because the Gemini API key is missing from the deployment environment.
-    </p>
-    <div className="bg-black/50 p-6 rounded-lg text-left max-w-lg">
-      <h2 className="font-bold text-lg mb-2 text-yellow-300">Deployment Instructions:</h2>
-      <ol className="text-sm list-decimal list-inside space-y-2">
-          <li>Go to your project settings on your deployment platform (e.g., Vercel).</li>
-          <li>Find the "Environment Variables" section.</li>
-          <li>Create a new variable named <strong>API_KEY</strong>.</li>
-          <li>Paste your Gemini API key as the value.</li>
-          <li>Save and redeploy the application.</li>
-      </ol>
-    </div>
-  </div>
-);
 
 
 const App = () => {
@@ -447,9 +428,7 @@ const App = () => {
   const idleTimeoutRef = useRef<number | null>(null);
 
   const apiKey = process.env.API_KEY;
-  if (!apiKey || apiKey === "undefined") {
-    return <ApiKeyErrorScreen />;
-  }
+  const isAiDisabled = !apiKey || apiKey === "undefined";
 
   useEffect(() => {
       const resetIdleTimer = () => {
@@ -1147,16 +1126,14 @@ const App = () => {
     if (!profile) return;
     setIsGeneratingAiPlaylist(true);
 
-    // FIX: Use process.env.API_KEY as per Gemini API guidelines.
-    const aiApiKey = process.env.API_KEY;
-    if (!aiApiKey || !navigator.onLine) {
-        showNotification("AI is offline, creating a local playlist instead.", 'info');
+    if (isAiDisabled || !navigator.onLine) {
+        showNotification(isAiDisabled ? "AI features are currently unavailable (no API key)." : "AI is offline, creating a local playlist instead.", 'info');
         createLocalAiPlaylist();
         setIsGeneratingAiPlaylist(false);
         return;
     }
     
-    const ai = new GoogleGenAI({ apiKey: aiApiKey });
+    const ai = new GoogleGenAI({ apiKey: apiKey! });
 
     try {
       const topSongTitles = profile.analytics.topSongs.slice(0, 5).map(s => `${s.title} by ${s.artist}`).join(', ');
@@ -1708,12 +1685,12 @@ useEffect(() => {
         case 'AssistantSettings': return <AssistantSettingsView onBack={handleBack} profile={profile!} onUpdateProfile={updateProfile} />;
         case 'CustomizeParticles': return <CustomizeParticlesView profile={profile!} onUpdateProfile={updateProfile} onBack={handleBack} />;
         case 'ManageRadioHub': return <ManageRadioHubView profile={profile!} onUpdateProfile={updateProfile} onBack={handleBack} />;
-        case 'Explore': return <OnlineDiscoveryView profile={profile} librarySongs={librarySongs} onPlaySong={handlePlaySong} onAddSongs={handleAddSongs} showNotification={showNotification} onNavigate={handleNavigate} onPlayAiPlaylist={handlePlayAiPlaylist} isGeneratingAiPlaylist={isGeneratingAiPlaylist} initialSearchQuery={initialAssistantSearch} onClearInitialSearch={() => setInitialAssistantSearch(undefined)} onOpenSongDetails={(song) => { setModalData(song); setActiveModal('share_preview'); }} />;
+        case 'Explore': return <OnlineDiscoveryView profile={profile} librarySongs={librarySongs} onPlaySong={handlePlaySong} onAddSongs={handleAddSongs} showNotification={showNotification} onNavigate={handleNavigate} onPlayAiPlaylist={handlePlayAiPlaylist} isGeneratingAiPlaylist={isGeneratingAiPlaylist} initialSearchQuery={initialAssistantSearch} onClearInitialSearch={() => setInitialAssistantSearch(undefined)} onOpenSongDetails={(song) => { setModalData(song); setActiveModal('share_preview'); }} isAiDisabled={isAiDisabled} />;
         case 'SimpleModeSettings': return <SimpleModeSettingsView profile={profile!} onUpdateProfile={updateProfile} onBack={handleBack} onAddWisdom={() => setActiveModal('add_wisdom')} />;
         case 'Appearance': return <CustomizeAppearanceView profile={profile!} onClose={handleBack} onThemePairChange={handleThemePairChange} onFontChange={handleFontChange} onApplyCustomTheme={handleApplyCustomTheme} />;
         case 'Home':
         default:
-            return <HomeView profile={profile!} librarySongs={librarySongs} onNavigate={handleNavigate} onPlaySong={handlePlaySong} onOpenAssistant={handleOpenAssistant} onToggleTheme={() => updateProfile(p => ({...p, themeMode: p.themeMode === 'light' ? 'dark' : 'light'}))} onOpenAddMoodModal={() => setActiveModal('add_mood')} isAssistantOpening={isAssistantOpening} />;
+            return <HomeView profile={profile!} librarySongs={librarySongs} onNavigate={handleNavigate} onPlaySong={handlePlaySong} onOpenAssistant={handleOpenAssistant} onToggleTheme={() => updateProfile(p => ({...p, themeMode: p.themeMode === 'light' ? 'dark' : 'light'}))} onOpenAddMoodModal={() => setActiveModal('add_mood')} isAssistantOpening={isAssistantOpening} isAiDisabled={isAiDisabled} />;
     }
   };
 
@@ -1728,7 +1705,7 @@ useEffect(() => {
   }
 
   return (
-    <div className="h-full w-full relative">
+    <div className="h-full w-full relative flex flex-col lg:flex-row">
         <BackgroundEffects settings={profile.settings.backgroundEffects} />
         
         {isSimpleModeActive && nowPlaying ? (
@@ -1745,29 +1722,58 @@ useEffect(() => {
             />
         ) : (
             <>
-                <div className="relative z-10 h-full w-full">
+                <div className="hidden lg:flex flex-col w-64 glass-nav border-r border-[var(--surface-border-color)] z-20">
+                    <div className="p-6">
+                        <h1 className="text-2xl font-bold name-anim-color-cycle">Mwijay Music</h1>
+                    </div>
+                    <nav className="flex-1 px-4 space-y-2">
+                        {navItems.map((item) => (
+                            <button
+                                key={item.name}
+                                onClick={() => handleNavigate(item.name)}
+                                className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${activeView === item.name ? 'bg-[var(--primary-accent)] text-black' : 'text-[var(--text-secondary)] hover:bg-white/10'}`}
+                            >
+                                <i className={`fas ${item.icon} text-xl`}></i>
+                                <span className="font-semibold">{item.name}</span>
+                            </button>
+                        ))}
+                    </nav>
+                    {nowPlaying && (
+                        <div className="p-4 mb-4 mx-4 bg-black/20 rounded-2xl border border-white/5 cursor-pointer hover:bg-black/30 transition-colors" onClick={() => setIsPlayerVisible(true)}>
+                            <img src={nowPlaying.albumArtUrl} alt={nowPlaying.title} className="w-full aspect-square rounded-xl object-cover mb-3" />
+                            <p className="font-bold truncate text-sm">{nowPlaying.title}</p>
+                            <p className="text-xs text-[var(--text-secondary)] truncate">{nowPlaying.artist}</p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="relative z-10 h-full w-full flex-1 overflow-hidden">
                     {renderCurrentView()}
                 </div>
 
                 {nowPlaying && (
-                    <MiniPlayer
-                        song={nowPlaying}
-                        isPlaying={isPlaying}
-                        onTogglePlay={handleTogglePlay}
-                        onShowPlayer={() => setIsPlayerVisible(true)}
-                        onToggleFavorite={() => handleToggleFavorite(nowPlaying.id)}
-                        onNext={handleNext}
-                        isHidden={isPlayerVisible || isSimpleModeActive || isBottomNavHidden}
-                    />
+                    <div className="lg:hidden">
+                        <MiniPlayer
+                            song={nowPlaying}
+                            isPlaying={isPlaying}
+                            onTogglePlay={handleTogglePlay}
+                            onShowPlayer={() => setIsPlayerVisible(true)}
+                            onToggleFavorite={() => handleToggleFavorite(nowPlaying.id)}
+                            onNext={handleNext}
+                            isHidden={isPlayerVisible || isSimpleModeActive || isBottomNavHidden}
+                        />
+                    </div>
                 )}
                 
-                <BottomNav
-                    items={navItems}
-                    activeItem={activeView}
-                    onItemClick={handleNavigate}
-                    isHidden={isBottomNavHidden || isPlayerVisible || isSimpleModeActive}
-                    profile={profile}
-                />
+                <div className="lg:hidden">
+                    <BottomNav
+                        items={navItems}
+                        activeItem={activeView}
+                        onItemClick={handleNavigate}
+                        isHidden={isBottomNavHidden || isPlayerVisible || isSimpleModeActive}
+                        profile={profile}
+                    />
+                </div>
             </>
         )}
 

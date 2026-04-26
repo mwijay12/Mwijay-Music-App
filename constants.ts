@@ -1,4 +1,4 @@
-import type { User, Song, Video, ThemePair, Font, Achievement, NameplateAnimation } from './types.ts';
+import type { User, Song, Video, ThemePair, Font, Achievement, NameplateAnimation, ProfileData } from './types.ts';
 
 export const user: User = {
     name: 'Mwijay',
@@ -409,7 +409,7 @@ const BASE_ACHIEVEMENTS: Omit<Achievement, 'criteria'>[] = [
 ];
 
 export const achievements: Achievement[] = BASE_ACHIEVEMENTS.map(base => {
-    const criteria: Achievement['criteria'] = (profile, type, value) => {
+    const criteria: Achievement['criteria'] = (profile: ProfileData & { librarySongs: Song[] }, type: string, value: any) => {
         const librarySongs = profile.librarySongs || [];
         switch (base.id) {
             // Listening Milestones
@@ -427,9 +427,9 @@ export const achievements: Achievement[] = BASE_ACHIEVEMENTS.map(base => {
             case 'upload10': return type === 'songsUploaded' && value >= 10;
             case 'upload50': return type === 'songsUploaded' && value >= 50;
             case 'upload250': return type === 'songsUploaded' && value >= 250;
-            case 'favorite1': return librarySongs.filter(s => s.isFavorite).length >= 1;
-            case 'favorite25': return librarySongs.filter(s => s.isFavorite).length >= 25;
-            case 'favorite100': return librarySongs.filter(s => s.isFavorite).length >= 100;
+            case 'favorite1': return librarySongs.filter((s: Song) => s.isFavorite).length >= 1;
+            case 'favorite25': return librarySongs.filter((s: Song) => s.isFavorite).length >= 25;
+            case 'favorite100': return librarySongs.filter((s: Song) => s.isFavorite).length >= 100;
             case 'digital-digger': return (profile.analytics.songsDownloaded || 0) >= 10;
             case 'perfectionist': return (profile.analytics.songsEdited || 0) >= 10;
             
@@ -449,10 +449,10 @@ export const achievements: Achievement[] = BASE_ACHIEVEMENTS.map(base => {
             case 'reel1': return type === 'reels' && value >= 1;
             case 'reel10': return type === 'reels' && value >= 10;
             case 'assistant1': return type === 'assistantUses' && value >= 1;
-            case 'eq-tinkerer': return !profile.settings.equalizer.bands.every(b => b === 0);
+            case 'eq-tinkerer': return !profile.settings.equalizer.bands.every((b: number) => b === 0);
             case 'lyric-lover': return !!profile.usedFeatures.lyricsViewed;
             case 'ai-lyricist': return type === 'ai-lyricist' && value >= 1;
-            case 'mood-setter': return librarySongs.filter(s => s.moodEmoji).length >= 3;
+            case 'mood-setter': return librarySongs.filter((s: Song) => s.moodEmoji).length >= 3;
             case 'global-explorer': return (profile.favoriteRadioGenres?.length || 0) > 0 || (profile.favoriteRadioRegions?.length || 0) > 0;
             case 'wisdom-seeker': return (profile.customWisdom?.length || 0) > 0;
             case 'mood-curator': return (profile.customMoods?.length || 0) > 0;

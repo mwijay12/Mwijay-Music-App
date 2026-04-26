@@ -74,6 +74,7 @@ interface OnlineDiscoveryViewProps {
     onNavigate: (view: string) => void;
     onPlayAiPlaylist: () => void;
     isGeneratingAiPlaylist: boolean;
+    isAiDisabled?: boolean;
     initialSearchQuery?: string;
     onClearInitialSearch?: () => void;
     onOpenSongDetails: (song: Song) => void;
@@ -152,7 +153,7 @@ const SongRow: React.FC<{ song: Song; onPlay: () => void; onDownload: () => void
     );
 };
 
-const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, librarySongs, onPlaySong, onAddSongs, showNotification, onNavigate, onPlayAiPlaylist, isGeneratingAiPlaylist, initialSearchQuery, onClearInitialSearch, onOpenSongDetails }) => {
+const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, librarySongs, onPlaySong, onAddSongs, showNotification, onNavigate, onPlayAiPlaylist, isGeneratingAiPlaylist, isAiDisabled, initialSearchQuery, onClearInitialSearch, onOpenSongDetails }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<Song[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -351,10 +352,12 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, libr
                                     <i className="fas fa-tower-broadcast text-3xl"></i>
                                     <span className="font-bold">Live Radio</span>
                                 </button>
-                                 <button onClick={onPlayAiPlaylist} disabled={isGeneratingAiPlaylist} className="bg-gradient-to-r from-pink-500 to-rose-500 p-4 rounded-lg flex items-center gap-4 transition-transform hover:scale-105 disabled:opacity-70">
-                                     {isGeneratingAiPlaylist ? <i className="fas fa-spinner fa-spin text-3xl"></i> : <i className="fas fa-wand-magic-sparkles text-3xl"></i>}
-                                    <span className="font-bold">{isGeneratingAiPlaylist ? 'Creating...' : 'AI Playlist'}</span>
-                                </button>
+                                {!isAiDisabled && (
+                                    <button onClick={onPlayAiPlaylist} disabled={isGeneratingAiPlaylist} className="bg-gradient-to-r from-pink-500 to-rose-500 p-4 rounded-lg flex items-center gap-4 transition-transform hover:scale-105 disabled:opacity-70">
+                                        {isGeneratingAiPlaylist ? <i className="fas fa-spinner fa-spin text-3xl"></i> : <i className="fas fa-wand-magic-sparkles text-3xl"></i>}
+                                        <span className="font-bold">{isGeneratingAiPlaylist ? 'Creating...' : 'AI Playlist'}</span>
+                                    </button>
+                                )}
                             </div>
                         </section>
                         

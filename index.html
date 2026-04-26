@@ -48,6 +48,20 @@
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         transition: background-color 0.3s, color 0.3s;
+        display: flex;
+        justify-content: center;
+      }
+      #root {
+        width: 100%;
+        max-width: 100%;
+      }
+      @media (min-width: 1024px) {
+        #root {
+          max-width: 1280px;
+          border-left: 1px solid var(--surface-border-color);
+          border-right: 1px solid var(--surface-border-color);
+          position: relative;
+        }
       }
       body::-webkit-scrollbar { display: none; }
       body { -ms-overflow-style: none; scrollbar-width: none; }
