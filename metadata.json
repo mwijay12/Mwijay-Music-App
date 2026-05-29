@@ -1,0 +1,10 @@
+{
+  "name": "Mwijay Music App",
+  "description": "A futuristic music player with AI discovery, multiple online sources (Archive.org, Audius, Jamendo, ccMixter), and live radio.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera",
+    "geolocation"
+  ],
+  "prompt": ""
+}

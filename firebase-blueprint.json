@@ -1,0 +1,109 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "theme": { "type": "string" },
+        "settings": { "type": "object" },
+        "recentlyPlayed": { "type": "array", "items": { "type": "string" } },
+        "topSongs": { "type": "array" },
+        "topArtists": { "type": "array" },
+        "achievements": { "type": "array" },
+        "totalListenTime": { "type": "number" },
+        "isPro": { "type": "boolean" },
+        "customMoods": { "type": "array" },
+        "wisdom": { "type": "array" }
+      },
+      "required": ["id", "name"]
+    },
+    "Song": {
+      "title": "Song",
+      "description": "Music track metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "artist": { "type": "string" },
+        "album": { "type": "string" },
+        "duration": { "type": "number" },
+        "url": { "type": "string" },
+        "albumArtUrl": { "type": "string" },
+        "mood": { "type": "string" },
+        "moodEmoji": { "type": "string" },
+        "isFavorite": { "type": "boolean" },
+        "lyrics": { "type": "string" },
+        "userId": { "type": "string" },
+        "dateAdded": { "type": "number" }
+      },
+      "required": ["id", "title", "userId"]
+    },
+    "Playlist": {
+      "title": "Playlist",
+      "description": "User created playlist",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "songIds": { "type": "array", "items": { "type": "string" } },
+        "userId": { "type": "string" },
+        "isDefault": { "type": "boolean" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "name", "userId"]
+    },
+    "Video": {
+      "title": "Video",
+      "description": "Video track metadata (Reels)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "userId": { "type": "string" },
+        "thumbnailUrl": { "type": "string" }
+      },
+      "required": ["id", "title", "userId"]
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "Message in assistant chat history",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "parts": { "type": "array" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "userId", "role", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User specific data"
+    },
+    "/songs/{songId}": {
+      "schema": "Song",
+      "description": "Music collection"
+    },
+    "/playlists/{playlistId}": {
+      "schema": "Playlist",
+      "description": "User playlists"
+    },
+    "/videos/{videoId}": {
+      "schema": "Video",
+      "description": "Video collection"
+    },
+    "/chatHistory/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "History of assistant interactions"
+    }
+  }
+}

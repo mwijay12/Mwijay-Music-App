@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AndroidManifest_ADDITIONS.xml
+  ─────────────────────────────────────────────────────────────────────────────
+  DO NOT replace your AndroidManifest.xml with this file.
+  Instead, MERGE these additions into your existing
+  android/app/src/main/AndroidManifest.xml after running:
+      npx cap add android
+
+  STEP 1 ─ Add these PERMISSIONS before the <application> tag:
+  ─────────────────────────────────────────────────────────────────────────────
+-->
+
+<!-- PERMISSIONS (add before <application>) -->
+<!--
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+-->
+
+<!--
+  STEP 2 ─ Add these COMPONENTS inside the <application> tag:
+  ─────────────────────────────────────────────────────────────────────────────
+-->
+
+<!-- SERVICE declaration (add inside <application>) -->
+<!--
+    <service
+        android:name=".MusicService"
+        android:foregroundServiceType="mediaPlayback"
+        android:exported="false" />
+-->
+
+<!-- MEDIA BUTTON receiver for Bluetooth/headphone buttons (add inside <application>) -->
+<!--
+    <receiver
+        android:name="androidx.media.session.MediaButtonReceiver"
+        android:exported="true">
+        <intent-filter>
+            <action android:name="android.intent.action.MEDIA_BUTTON" />
+        </intent-filter>
+    </receiver>
+-->
+
+<!--
+  STEP 3 ─ Add this dependency to android/app/build.gradle:
+  ─────────────────────────────────────────────────────────────────────────────
+  Inside the dependencies { } block:
+
+      implementation 'androidx.media:media:1.7.0'
+
+  Full dependencies block will look like:
+      dependencies {
+          implementation "com.capacitorjs:core:$capacitorVersion"
+          implementation 'androidx.media:media:1.7.0'
+          // ... other existing deps
+      }
+
+  ─────────────────────────────────────────────────────────────────────────────
+  STEP 4 ─ Copy the Kotlin files to your Android project AFTER cap add android:
+  ─────────────────────────────────────────────────────────────────────────────
+  From android_native/app/src/main/java/com/mwijay/music/  →
+       android/app/src/main/java/com/mwijay/music/
+
+      MusicService.kt    (foreground service)
+      MusicPlugin.kt     (Capacitor bridge)
+      MainActivity.kt    (replaces the generated one)
+
+  From android_native/app/src/main/res/drawable/  →
+       android/app/src/main/res/drawable/
+
+      ic_notification.xml
+      ic_play.xml
+      ic_pause.xml
+      ic_next.xml
+      ic_prev.xml
+      ic_heart.xml
+      ic_heart_filled.xml
+
+  ─────────────────────────────────────────────────────────────────────────────
+  STEP 5 ─ Build sequence:
+  ─────────────────────────────────────────────────────────────────────────────
+      npm run build          (build the Vite web app)
+      npx cap sync android   (copy web assets + plugins to Android)
+      npx cap open android   (open in Android Studio)
+      Run app on device      (Android Studio → Run)
+-->

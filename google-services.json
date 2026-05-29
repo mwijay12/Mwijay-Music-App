@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "848484568269",
+    "project_id": "mwijay-music-app",
+    "storage_bucket": "mwijay-music-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:848484568269:android:4b05f929d00b5ed1ef6d84",
+        "android_client_info": {
+          "package_name": "mwijay.music.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "848484568269-pcjiscjcd2mg05j3rrfrnfpan5i122a1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDx_zZEV0fhHnHZgB5vXKbVWiil_RUacLY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "848484568269-pcjiscjcd2mg05j3rrfrnfpan5i122a1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,169 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. Primitive Definition Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 2. Validation Helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name']) &&
+             data.id == request.auth.uid &&
+             data.name is string && data.name.size() <= 100;
+    }
+
+    function isValidSong(data) {
+      return data.keys().hasAll(['id', 'title', 'userId']) &&
+             data.userId == request.auth.uid &&
+             data.title is string && data.title.size() <= 200;
+    }
+
+    function isValidPlaylist(data) {
+      return data.keys().hasAll(['id', 'name', 'userId']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() <= 100;
+    }
+
+    function isValidVideo(data) {
+      return data.keys().hasAll(['id', 'title', 'userId']) &&
+             data.userId == request.auth.uid &&
+             data.title is string && data.title.size() <= 200;
+    }
+
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['id', 'userId', 'role', 'timestamp']) &&
+             data.userId == request.auth.uid &&
+             data.role in ['user', 'model'];
+    }
+
+    // 3. Match Blocks
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming()) && request.auth.token.email_verified == true;
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'avatarUrl', 'theme', 'settings', 'recentlyPlayed', 
+          'topSongs', 'topArtists', 'achievements', 'totalListenTime', 
+          'isPro', 'customMoods', 'wisdom', 'activeThemePair', 'themeMode', 'activeFont', 'id'
+        ])
+      );
+    }
+
+    match /songs/{songId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.auth.token.email_verified == true && isValidSong(incoming()) && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidSong(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'artist', 'album', 'duration', 'url', 'albumArtUrl', 
+          'mood', 'moodEmoji', 'isFavorite', 'lyrics', 'notes', 'userId', 'dateAdded', 'bpm', 'suggestedCoverArt', 'mimeType'
+        ])
+      );
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /playlists/{playlistId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.auth.token.email_verified == true && isValidPlaylist(incoming()) && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidPlaylist(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'songIds', 'description', 'isDefault', 'coverImage', 'emoji', 'bgColor', 'userId'])
+      );
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /videos/{videoId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.auth.token.email_verified == true && isValidVideo(incoming()) && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidVideo(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['title', 'url', 'thumbnailUrl', 'uploader', 'isFavorite', 'comments', 'userId'])
+      );
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /chatHistory/{messageId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.auth.token.email_verified == true && isValidChatMessage(incoming()) && incoming().userId == request.auth.uid;
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // 4. Social / Engagement Collections (Batch 2)
+    match /likes/{likeId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isSignedIn() && incoming().userId == request.auth.uid;
+    }
+
+    match /play_counts/{songId} {
+      allow read: if true; // Public trending data
+      allow write: if isSignedIn();
+    }
+
+    match /trending/{docId} {
+      allow read: if true; // Public
+      allow write: if isSignedIn(); // Aggregation writes
+    }
+
+    // 5. User History (Batch 1)
+    match /user_history/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // 6. Profiles (Batch 1)
+    match /profiles/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+
+    // 7. Crash Reports (Batch 5 - Admin readable)
+    match /crash_reports/{reportId} {
+      allow create: if true; // Allow even unauthenticated (for pre-login crashes)
+      allow read: if isSignedIn() && request.auth.token.email == 'davidbyanmwijage@gmail.com';
+      allow delete: if isSignedIn() && request.auth.token.email == 'davidbyanmwijage@gmail.com';
+    }
+
+    // 8. Activity Feed (Batch 4)
+    match /activity_feed/{userId}/{document=**} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+
+    // 9. Playlists (Batch 3 collaborative)
+    match /cloud_playlists/{playlistId} {
+      allow read: if isSignedIn() && (
+        existing().isPublic == true ||
+        existing().ownerId == request.auth.uid ||
+        request.auth.uid in existing().collaborators
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        existing().ownerId == request.auth.uid ||
+        request.auth.uid in existing().collaborators
+      );
+      allow delete: if isSignedIn() && existing().ownerId == request.auth.uid;
+    }
+  }
+}

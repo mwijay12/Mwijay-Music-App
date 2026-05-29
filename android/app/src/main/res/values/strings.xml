@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Mwijay Music</string>
+    <string name="title_activity_main">Mwijay Music</string>
+    <string name="package_name">mwijay.music.app</string>
+    <string name="custom_url_scheme">mwijay.music.app</string>
+    <string name="server_client_id">848484568269-pcjiscjcd2mg05j3rrfrnfpan5i122a1.apps.googleusercontent.com</string>
+</resources>

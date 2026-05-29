@@ -1,0 +1,42 @@
+/* Hardware accelerated scrolling */
+.smooth-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  will-change: scroll-position;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* Prevent layout shifts during scroll */
+.scroll-container {
+  contain: layout style paint;
+}
+
+/* Smooth list items */
+.list-item {
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* Reduce repaints on scroll */
+.fixed-element {
+  position: fixed;
+  will-change: transform;
+  z-index: 100;
+}
+
+/* Disable text selection on scroll areas (better mobile UX) */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Allow selection on inputs */
+input, textarea, [contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+}

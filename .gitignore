@@ -1,0 +1,46 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvsca
+*.njsproj
+*.sln
+*.sw?
+
+# Vite / React
+dev-dist
+
+# Android / Capacitor build outputs
+android/app/build
+android/app/src/main/assets/public
+android/app/src/main/assets/www
+
+# grep search or temp files
+grep_output.txt
+
+# Environment variables
+.env
+.env.production
+.env.development
+.env.local
+.env.*.local
+
+# Vite temporary timestamp files
+vite.config.ts.timestamp-*
+
