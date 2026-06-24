@@ -376,7 +376,7 @@ const MusicQuizView: React.FC<MusicQuizViewProps> = ({ librarySongs, onBack, pro
     // Mode Selection Screen
     if (!gameMode) {
         return (
-            <main className="h-full w-full home-gradient-bg flex flex-col p-6 pb-40 overflow-y-auto">
+            <main className="h-full w-full home-gradient-bg flex flex-col p-6 pb-10 overflow-y-auto">
                 <header className="flex items-center gap-4 mb-6">
                     <button onClick={onBack} className="text-2xl hover:scale-105 active:scale-95 transition-transform"><ArrowLeft size={24} /></button>
                     <h1 className="text-2xl font-bold">Music Quiz</h1>
@@ -571,7 +571,7 @@ const MusicQuizView: React.FC<MusicQuizViewProps> = ({ librarySongs, onBack, pro
     }
 
     return (
-        <main className="h-full w-full home-gradient-bg flex flex-col p-6 pb-40 overflow-y-auto">
+        <main className="h-full w-full home-gradient-bg flex flex-col p-6 pb-10 overflow-y-auto">
             {(isCorrect || isNewHighScore) && <Confetti />}
             <header className="flex justify-between items-center mb-6 flex-shrink-0">
                 <button onClick={() => setGameMode(null)} className="text-xl w-9 h-9 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full border border-white/5 transition-colors"><X size={18} /></button>

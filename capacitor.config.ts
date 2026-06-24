@@ -7,6 +7,11 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https'
   },
+  android: {
+    allowMixedContent: true,
+    captureInput: true,
+    webContentsDebuggingEnabled: true,
+  },
   plugins: {
     LocalNotifications: {
       smallIcon: "ic_stat_icon_config_sample",
@@ -17,6 +22,10 @@ const config: CapacitorConfig = {
       scopes: ["profile", "email"],
       clientId: "848484568269-pcjiscjcd2mg05j3rrfrnfpan5i122a1.apps.googleusercontent.com",
       forceCodeForRefreshToken: true,
+    },
+    FirebaseAuthentication: {
+      skipNativeAuth: false,
+      providers: ["google.com"],
     },
     Keyboard: {
       resize: 'none' as any,

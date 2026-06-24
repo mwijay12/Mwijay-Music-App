@@ -76,7 +76,7 @@ const SongListItem: React.FC<{
                   <MarqueeText
                     text={song.title}
                     className={`font-bold text-sm leading-normal ${isCurrentlyPlaying ? 'text-[var(--primary-accent)]' : 'text-[var(--text-primary)]'}`}
-                    isActive={isCurrentlyPlaying}
+                    isActive={true}
                     speed={35}
                   />
                 </div>
@@ -94,7 +94,7 @@ const SongListItem: React.FC<{
                 <MarqueeText
                   text={song.artist}
                   className="text-xs text-neutral-400 cursor-pointer hover:underline"
-                  isActive={isCurrentlyPlaying}
+                  isActive={true}
                   speed={30}
                 />
               </div>

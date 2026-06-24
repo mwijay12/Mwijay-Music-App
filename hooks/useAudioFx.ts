@@ -3,6 +3,29 @@ import { useRef, useCallback } from 'react';
 import type { ProfileData, AudioFxNodes } from '../types.ts';
 
 import * as Tone from 'tone';
+import { audioEngine } from '../services/audioEngine.ts';
+import { getSharedAudioContext, resumeSharedContext } from '../services/sharedAudioContext.ts';
+
+let pristineConnect: any = null;
+
+const getPristineConnect = () => {
+  if (pristineConnect) return pristineConnect;
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    if (iframe.contentWindow && (iframe.contentWindow as any).AudioNode) {
+      pristineConnect = (iframe.contentWindow as any).AudioNode.prototype.connect;
+    }
+    document.body.removeChild(iframe);
+  } catch (e) {
+    console.warn('Failed to retrieve pristine connect from iframe:', e);
+  }
+  if (!pristineConnect) {
+    pristineConnect = AudioNode.prototype.connect;
+  }
+  return pristineConnect;
+};
 
 // A more detailed internal type for the hook's ref
 type InternalAudioFxNodes = AudioFxNodes & {
@@ -16,19 +39,16 @@ const EQ_FREQUENCIES = [60, 250, 1000, 4000, 16000];
 export const useAudioFx = () => {
     const audioFxRef = useRef<InternalAudioFxNodes | null>(null);
 
-    const initializeAudioFx = useCallback((audioElement: HTMLMediaElement) => {
+    const initializeAudioFx = useCallback(async (audioElement: HTMLMediaElement) => {
         // Initialize only once, or if the element has changed (rare)
         if (audioFxRef.current && audioFxRef.current.audioElement === audioElement) return;
 
-        const context = Tone.getContext().rawContext as AudioContext;
+        await resumeSharedContext();
+        const context = getSharedAudioContext();
 
-        // Reuse the MediaElementAudioSourceNode that audioEngine.init() already created.
-        // Web Audio ONLY allows ONE MediaElementAudioSourceNode per element — shared here.
-        let source = (audioElement as any)._mediaElementSource as MediaElementAudioSourceNode | undefined;
-        if (!source) {
-            source = context.createMediaElementSource(audioElement);
-            (audioElement as any)._mediaElementSource = source;
-        }
+        // Reuse the MediaElementAudioSourceNode that audioEngine.init() already created if it exists.
+        // Web Audio ONLY allows ONE MediaElementAudioSourceNode per element.
+        const source = ((audioElement as any)._mediaElementSource as MediaElementAudioSourceNode) || null;
 
         const preamp = context.createGain();
         const eqBands = EQ_FREQUENCIES.map(frequency => {
@@ -67,17 +87,27 @@ export const useAudioFx = () => {
         output.gain.value = 1.0;
 
         // ── Signal chain ───────────────────────────────────────────────────
-        // Use AudioNode.prototype.connect.call() instead of source.connect() to bypass
-        // Tone.js's patched connect which rejects nodes not in its internal registry.
-        // Cast to `any` to force the AudioNode overload (not AudioParam).
-        const nativeConnectTo = (src: AudioNode, dst: AudioNode) =>
-            (AudioNode.prototype.connect as (this: AudioNode, dest: AudioNode) => AudioNode).call(src, dst);
+        const nativeConnectTo = (src: AudioNode, dst: AudioNode) => {
+            try {
+                getPristineConnect().call(src, dst);
+            } catch (e) {
+                console.warn('[useAudioFx] Pristine connect failed, using standard connect:', e);
+                src.connect(dst);
+            }
+        };
 
-        // Tap for visualiser analyser (no audio impact)
-        nativeConnectTo(source, analyser);
+        // Tap for visualiser analyser (no audio impact — read-only)
+        if (source) {
+            nativeConnectTo(source, analyser);
+        } else {
+            audioEngine.setAnalyserTap(analyser);
+        }
 
-        // Main EQ → compressor → output chain
-        nativeConnectTo(source, preamp);
+        // DO NOT connect source → preamp here!
+        // audioEngine.setNextNode(preamp) handles the source → preamp routing.
+        // Connecting source → preamp here PLUS audioEngine's own source connection
+        // creates TWO parallel audio paths causing phasing, doubling, and stuttering.
+        // The preamp→...→destination chain below is ready to receive audio from audioEngine.
         let lastNode: AudioNode = preamp;
         eqBands.forEach(band => {
             lastNode.connect(band);

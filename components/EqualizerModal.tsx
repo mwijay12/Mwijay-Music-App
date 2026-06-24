@@ -161,6 +161,50 @@ const CreativeTab: React.FC<{ settings: ProfileData['settings']['creative'], onU
     </div>
 ));
 
+const VoiceTab: React.FC<{ 
+    currentEffect: string, 
+    onUpdate: (effectId: string) => void 
+}> = memo(({ currentEffect, onUpdate }) => {
+    const effects = [
+        { id: 'none', label: 'Normal 🎵', desc: 'No voice effects' },
+        { id: 'chipmunk', label: 'Chipmunk 🐿️', desc: 'High pitch voice' },
+        { id: 'deep_voice', label: 'Deep Voice 🦁', desc: 'Heavy bass pitch' },
+        { id: 'robot', label: 'Robot 🤖', desc: 'Metallic vocoder' },
+        { id: 'slowed_reverb', label: 'Slow & Reverb 🌌', desc: 'Dreamy TikTok style' },
+        { id: 'lofi', label: 'Lofi Vibes 📻', desc: 'Warm vinyl filters' },
+        { id: 'telephone', label: 'Telephone 📞', desc: 'Vintage radio voice' },
+        { id: 'underwater', label: 'Underwater 🌊', desc: 'Muffled sound sweeps' },
+    ];
+
+    return (
+        <div className="p-6 space-y-4">
+            <h4 className="font-bold text-center text-sm mb-2 text-neutral-300">Online Voice Modulators (Pedalboard)</h4>
+            <div className="grid grid-cols-2 gap-3">
+                {effects.map(effect => {
+                    const isSelected = currentEffect === effect.id;
+                    return (
+                        <button
+                            key={effect.id}
+                            onClick={() => onUpdate(effect.id)}
+                            className={`p-3 rounded-xl border text-left transition-all active:scale-95 ${
+                                isSelected 
+                                    ? 'bg-[var(--primary-accent)]/20 border-[var(--primary-accent)] text-[var(--primary-accent)] font-black' 
+                                    : 'bg-white/5 border-white/5 hover:bg-white/10 text-neutral-300'
+                            }`}
+                        >
+                            <div className="font-bold text-xs">{effect.label}</div>
+                            <div className="text-[9px] text-neutral-400 mt-0.5 truncate">{effect.desc}</div>
+                        </button>
+                    );
+                })}
+            </div>
+            <p className="text-[9px] text-neutral-500 mt-2 text-center italic">
+                * Custom DSP processes are executed on your AWS EC2 VPS server.
+            </p>
+        </div>
+    );
+});
+
 const truncate = (str: string, len: number) => str.length > len ? `${str.substring(0, len)}...` : str;
 
 const MetronomeTab: React.FC<{ 
@@ -237,8 +281,18 @@ const MetronomeTab: React.FC<{
 });
 
 const EqualizerModal: React.FC<EqualizerModalProps> = ({ profile, song, onClose, onUpdateProfile, onUpdateSong, showNotification }) => {
-    const [activeTab, setActiveTab] = useState<'eq' | 'maximizer' | 'reverb' | 'creative' | 'metronome'>('eq');
+    const [activeTab, setActiveTab] = useState<'eq' | 'maximizer' | 'reverb' | 'creative' | 'voice' | 'metronome'>('eq');
     
+    const handleVoiceUpdate = useCallback((effectId: string) => {
+        onUpdateProfile(p => ({
+            ...p,
+            settings: {
+                ...p.settings,
+                voiceEffect: effectId
+            }
+        }));
+    }, [onUpdateProfile]);
+
     const handleUpdate = useCallback((section: keyof ProfileData['settings'], key: string, value: any) => {
         onUpdateProfile(p => ({
             ...p,
@@ -317,15 +371,16 @@ const EqualizerModal: React.FC<EqualizerModalProps> = ({ profile, song, onClose,
                             {activeTab === 'maximizer' && <MaximizerTab settings={profile.settings.maximizer} onUpdate={(k, v) => handleUpdate('maximizer', k, v)} />}
                             {activeTab === 'reverb' && <ReverbTab settings={profile.settings.reverb} onUpdate={(k, v) => handleUpdate('reverb', k, v)} />}
                             {activeTab === 'creative' && <CreativeTab settings={profile.settings.creative} onUpdate={handleCreativeUpdate} />}
+                            {activeTab === 'voice' && <VoiceTab currentEffect={(profile.settings as any).voiceEffect || 'none'} onUpdate={handleVoiceUpdate} />}
                             {activeTab === 'metronome' && <MetronomeTab song={song} onUpdateSong={onUpdateSong} settings={profile.settings.metronome} onUpdate={(k, v) => handleUpdate('metronome', k, v)} showNotification={showNotification}/>}
                         </motion.div>
                     </AnimatePresence>
                 </div>
                 
-                <nav className="flex-shrink-0 flex justify-around p-2 bg-black/20">
-                    {(['eq', 'maximizer', 'reverb', 'creative', 'metronome'] as const).map(tab => (
-                        <button key={tab} onClick={() => setActiveTab(tab)} className={`capitalize px-3 py-2 text-sm rounded-md font-bold ${activeTab === tab ? 'bg-[var(--primary-accent)] text-black' : 'text-neutral-300'}`}>
-                            {tab}
+                <nav className="flex-shrink-0 flex justify-around p-2 bg-black/20 overflow-x-auto no-scrollbar scroll-container">
+                    {(['eq', 'maximizer', 'reverb', 'creative', 'voice', 'metronome'] as const).map(tab => (
+                        <button key={tab} onClick={() => setActiveTab(tab)} className={`capitalize px-3 py-2 text-xs rounded-md font-bold transition-all flex-shrink-0 ${activeTab === tab ? 'bg-[var(--primary-accent)] text-black' : 'text-neutral-400 hover:text-white'}`}>
+                            {tab === 'eq' ? 'EQ' : tab}
                         </button>
                     ))}
                 </nav>

@@ -10,6 +10,7 @@ import { useInterruptibleScroll } from '../hooks/useInterruptibleScroll.ts';
 import BubbleButton from './BubbleButton.tsx';
 import { GoogleGenAI } from '@google/genai';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { adminSongsService } from '../services/adminSongsService.ts';
 
 const useSearchHistory = (storageKey: string) => {
     const [history, setHistory] = useState<string[]>(() => {
@@ -130,9 +131,13 @@ const OnlineSongRow: React.FC<{ song: Song; onPlay: () => void; onDownload: () =
 };
 
 const MoodCard: React.FC<{ title: string, emoji: string, color: string, onClick: () => void }> = ({ title, emoji, color, onClick }) => (
-    <button onClick={onClick} className={`relative flex-shrink-0 w-32 h-24 rounded-2xl overflow-hidden text-lg flex flex-col items-center justify-center p-2 transition-all hover:scale-105 ${color}`}>
-        <span className="z-10 font-bold">{title}</span>
-        <span className="absolute right-2 bottom-1 text-4xl opacity-30 z-0 select-none">{emoji}</span>
+    <button 
+        onClick={onClick} 
+        className={`relative flex-shrink-0 w-36 h-24 rounded-[2rem] overflow-hidden text-sm flex flex-col items-center justify-center p-4 transition-all hover:scale-105 active:scale-95 shadow-xl border border-white/10 ${color}`}
+    >
+        <span className="z-10 font-black text-lg leading-tight tracking-tight text-white drop-shadow-md">{title}</span>
+        <span className="absolute -right-1 -bottom-2 text-6xl opacity-30 z-0 select-none transform rotate-12 filter blur-[1px]">{emoji}</span>
+        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-50"></div>
     </button>
 );
 const AIPlaylistCard: React.FC<{ onClick: () => void, isLoading: boolean }> = ({ onClick, isLoading }) => (
@@ -257,6 +262,7 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, libr
     
     const [localResults, setLocalResults] = useState<Song[]>([]);
     const [onlineResults, setOnlineResults] = useState<Song[]>([]);
+    const [adminSearchResults, setAdminSearchResults] = useState<Song[]>([]);
     const [isBackgroundMusicSearch, setIsBackgroundMusicSearch] = useState(false);
     const [radioResults, setRadioResults] = useState<RadioStation[]>([]);
     const [highlightedSongId, setHighlightedSongId] = useState<string | null>(null);
@@ -503,8 +509,14 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, libr
         const local = librarySongs.filter(s => s.title.toLowerCase().includes(lowerTerm) || s.artist.toLowerCase().includes(lowerTerm));
         setLocalResults(local);
 
+        // Admin Songs Search
+        adminSongsService.search(term).then(songs => {
+          setAdminSearchResults(songs);
+        }).catch(err => console.warn('Admin search failed:', err));
+
         setOnlineResults([]);
         setRadioResults([]);
+        setAdminSearchResults([]);
         
         try {
             // Radio Search (Use original term)
@@ -621,6 +633,29 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, libr
                                 onDownload={() => {}} 
                                 isDownloading={false} 
                                 isDownloaded={true} 
+                                onOpenDetails={() => onOpenSongDetails(song)}
+                                onOpenLyrics={onOpenLyrics ? () => onOpenLyrics(song) : undefined}
+                            />
+                        ))}
+                    </div>
+                </section>
+            )}
+
+            {adminSearchResults.length > 0 && (
+                <section>
+                    <h3 className="font-bold text-lg mb-2 text-[var(--text-primary)] flex items-center gap-2">
+                        <Sparkles size={18} className="text-purple-400" />
+                        Mwijay Originals
+                    </h3>
+                    <div className="space-y-1">
+                        {adminSearchResults.map(song => (
+                            <OnlineSongRow
+                                key={song.id}
+                                song={{ ...song, source: 'Mwijay Originals' }}
+                                onPlay={() => onPlaySong(song, adminSearchResults)}
+                                onDownload={() => {}}
+                                isDownloading={false}
+                                isDownloaded={librarySongIds.has(song.id)}
                                 onOpenDetails={() => onOpenSongDetails(song)}
                                 onOpenLyrics={onOpenLyrics ? () => onOpenLyrics(song) : undefined}
                             />
@@ -786,6 +821,7 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, libr
                 ) : (
                     <div className="space-y-8 animate-fade-in">
                         {/* PREMIUM LIVE TRENDING CHARTS (Phase 2 - Prompts 1 & 3) */}
+                        {profile.settings.showTrendingCharts !== false && (
                         <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-2xl backdrop-blur-xl hover:border-white/20 transition-all duration-300">
                             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
                                 <div>
@@ -900,6 +936,7 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, libr
                                 </div>
                             )}
                         </section>
+                        )}
 
                         <section>
                             <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><History size={24} className="text-[var(--primary-accent)]" /> Archive & Specialty Sources</h2>
@@ -918,12 +955,21 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, libr
                                     </div>
                                     <Music size={48} className="text-white/20 absolute right-4 bottom-4 z-0" />
                                 </button>
-                                <button onClick={() => { setIsBackgroundMusicSearch(false); handleSearch('jazz swing', false, 'jazz'); }} className="relative w-full p-6 rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-800 flex justify-between items-center text-left text-white overflow-hidden transition-transform hover:scale-105">
+                                <button onClick={async () => {
+                                    setIsBackgroundMusicSearch(false);
+                                    const songs = await adminSongsService.getAllAsSongs();
+                                    if (songs.length > 0) {
+                                        setOnlineResults(songs);
+                                        setHasSearched(true);
+                                    } else {
+                                        showNotification('No Mwijay Originals uploaded yet.', 'info');
+                                    }
+                                }} className="relative w-full p-6 rounded-2xl bg-gradient-to-br from-[#A8E040] to-[#5fb016] flex justify-between items-center text-left text-white overflow-hidden transition-transform hover:scale-105">
                                     <div className="z-10">
-                                        <h3 className="text-xl font-bold">Jazz Archive</h3>
-                                        <p className="text-sm text-white/80 max-w-xs">Vintage blues & swing vibes.</p>
+                                        <h3 className="text-xl font-bold">Mwijay Originals</h3>
+                                        <p className="text-sm text-white/80 max-w-xs">Exclusive uploads by David Mwijage.</p>
                                     </div>
-                                    <Radio size={48} className="text-white/20 absolute right-4 bottom-4 z-0" />
+                                    <Music size={48} className="text-white/20 absolute right-4 bottom-4 z-0" />
                                 </button>
                                 <button onClick={() => { setIsBackgroundMusicSearch(false); handleSearch('lofi', false); }} className="relative w-full p-6 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex justify-between items-center text-left text-white overflow-hidden transition-transform hover:scale-105">
                                     <div className="z-10">
@@ -945,12 +991,13 @@ const OnlineDiscoveryView: React.FC<OnlineDiscoveryViewProps> = ({ profile, libr
                             </div>
                         </section>
 
-                        <section>
-                            <h2 className="text-xl font-bold mb-4">Moods</h2>
-                            <div ref={moodScrollerRef} className="prompt-scroller pb-4 gpu-accelerated-scroll -mx-6 px-6">
-                                <div ref={moodContentRef} className="slow-scroll-horizontal-content gap-3 w-fit">
+                        <section className="relative group/moods -mx-6 overflow-hidden">
+                            <div className="px-6 mb-4">
+                                <h2 className="text-xl font-bold text-[var(--text-primary)]">Moods</h2>
+                            </div>
+                            <div className="w-full px-6">
+                                <div className="flex w-fit animate-scroll group-hover/moods:paused gap-4 py-2">
                                     {renderMoodList('set1')}
-                                    {/* Duplicate for infinite loop effect */}
                                     {renderMoodList('set2')}
                                 </div>
                             </div>

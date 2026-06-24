@@ -4,7 +4,7 @@ import BubbleButton from './BubbleButton.tsx';
 import Confetti from './Confetti.tsx';
 import Aurora from './Aurora.tsx';
 import { signInWithGoogle } from '../services/firebase.ts';
-import { uploadToCloudinary } from '../services/cloudinaryService.ts';
+import { uploadToR2 } from '../services/r2Service.ts';
 import { useAuth } from '../hooks/useAuth.ts';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -60,7 +60,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onOpenEmojiPicker, 
 
         try {
             setIsUploading(true);
-            const result = await uploadToCloudinary(file);
+            const result = await uploadToR2(file);
             onAvatarChange(result.secure_url);
         } catch (error) {
             console.error("Cloudinary upload failed", error);

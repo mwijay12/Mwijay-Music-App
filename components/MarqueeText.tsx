@@ -28,8 +28,8 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
     const checkOverflow = () => {
       if (!containerRef.current || !textRef.current) return;
       
-      const containerWidth = containerRef.current.offsetWidth;
-      const textWidth = textRef.current.offsetWidth;
+      const containerWidth = containerRef.current.clientWidth;
+      const textWidth = textRef.current.scrollWidth;
       
       const overflows = textWidth > containerWidth;
       setShouldScroll(overflows || alwaysScroll);

@@ -1,16 +1,7 @@
 
-import type { User, Song, Video, ThemePair, Font, Achievement, NameplateAnimation, ThemeColors, ProfileData } from './types.ts';
+import type { User, Song, Video, ThemePair, Font, Achievement, NameplateAnimation, ThemeColors, ProfileData, SpeedPreset } from './types.ts';
 
-export const GEMINI_KEYS = (typeof process !== 'undefined' && process.env.GEMINI_KEYS ? process.env.GEMINI_KEYS.split(',') : [
-    'AIzaSyChoQSjIelaNNgnIZrpfhugSt9_On-kuzQ',
-    'AIzaSyA7WFeDV_aK--xVtbXclDkr2q1EQ6TecCc',
-    'AIzaSyAZnBentKVIGKDyWtQ41dwIGeJEfiFmItY',
-    'AIzaSyDM8zZLuG2AvIxQGL1Twoiw2iWiX51wMpw',
-    'AIzaSyBRqaSPUyXfb68sG2GLXfbQpZBg-EQeKEQ',
-    'AIzaSyBNfTqY6CjqliFLBM4GssDre1xyt71_sCY',
-    'AIzaSyDeGJlwd6zKc1F90HsZweGZk7M-CaA8Ql4',
-    'AIzaSyBt4L_Garwq0VC6oDergxc16T7hSEElC0Q'
-]).filter(Boolean);
+export const GEMINI_KEYS = (typeof process !== 'undefined' && process.env.GEMINI_KEYS ? process.env.GEMINI_KEYS.split(',') : []).filter(Boolean);
 
 const defaultGradients = [
     // Original
@@ -68,6 +59,24 @@ export const FAVORITES_PLAYLIST_ID = 'favorites-playlist-mwijay-music';
 export const FAVORITE_REELS_PLAYLIST_ID = 'favorite-reels-playlist-mwijay-music';
 
 
+export const SPEED_PRESETS: SpeedPreset[] = [
+  { rate: 0.25, label: 'Very Slow', emoji: '🐢', shortLabel: '0.25x' },
+  { rate: 0.5,  label: 'Slow',      emoji: '🐌', shortLabel: '0.5x'  },
+  { rate: 0.75, label: 'Study',     emoji: '📚', shortLabel: '0.75x' },
+  { rate: 1.0,  label: 'Normal',    emoji: '▶️',  shortLabel: '1x'    },
+  { rate: 1.25, label: 'Relaxed',   emoji: '☕', shortLabel: '1.25x' },
+  { rate: 1.5,  label: 'Podcast',   emoji: '🎧', shortLabel: '1.5x'  },
+  { rate: 1.75, label: 'Fast',      emoji: '🚀', shortLabel: '1.75x' },
+  { rate: 2.0,  label: 'Rapid',     emoji: '⚡', shortLabel: '2x'    },
+  { rate: 2.5,  label: 'Turbo',     emoji: '🔥', shortLabel: '2.5x'  },
+  { rate: 3.0,  label: 'Insane',    emoji: '💨', shortLabel: '3x'    },
+];
+
+export const DEFAULT_SPEED = 1.0;
+export const MIN_SPEED = 0.25;
+export const MAX_SPEED = 3.0;
+export const SPEED_STEP = 0.05;
+
 export const defaultMoods = [
     { name: 'Happy', emoji: '😊', color: 'bg-yellow-400/80 text-black', themeColor: '#FFD700' },
     { name: 'Sad', emoji: '😢', color: 'bg-blue-500/80 text-white', themeColor: '#3B82F6' },
@@ -110,6 +119,8 @@ export const visualizers = [
     { id: 'none', name: 'None', icon: 'Ban' },
     { id: 'beat-pulse', name: 'Beat Pulse', icon: 'Activity' },
     { id: 'spectral', name: 'Spectral', icon: 'BarChart3' },
+    { id: 'beat-synced-spectral', name: 'Beat Synced', icon: 'BarChart' },
+    { id: 'rhythmic-grid', name: 'Rhythmic Grid', icon: 'Grid' },
     { id: 'galaxy', name: 'Galaxy', icon: 'Sparkles' },
     { id: 'tunnel', name: 'Tunnel', icon: 'Target' },
     { id: 'particles', name: 'Particles', icon: 'Atom' },

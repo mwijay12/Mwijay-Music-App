@@ -22,6 +22,8 @@ export interface UpdateNowPlayingOptions {
   isLiked:   boolean;
   duration:  number;   // milliseconds
   position:  number;   // milliseconds
+  type?:     'music' | 'radio' | 'reel' | 'podcast' | 'video';
+  isLive?:   boolean;
 }
 
 export interface MediaActionEvent {

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { LocalNotifications } from '@capacitor/local-notifications';
@@ -41,6 +41,7 @@ import ReelPlaylistView from './components/ReelPlaylistView.tsx';
 import { MultiStepLoader } from './components/MultiStepLoader.tsx';
 import UploadToast from './components/UploadToast.tsx';
 import Onboarding from './components/Onboarding.tsx';
+import PermissionsOnboarding from './components/PermissionsOnboarding.tsx';
 import SongDetailsModal from './components/SongDetailsModal.tsx';
 import CameraCaptureModal from './components/CameraCaptureModal.tsx';
 import AchievementUnlockedToast from './components/AchievementUnlockedToast.tsx';
@@ -62,6 +63,7 @@ import { ZenModeScreen } from './components/ZenModeScreen.tsx';
 import LevelUpToast from './components/LevelUpToast.tsx';
 import { addXpClientSide, validateStreakOnLoad, updateStreakClientSide, getLocalDateString, getTitleForLevel } from './utils/gamification.ts';
 import { audioEngine } from './services/audioEngine.ts';
+import * as Tone from 'tone';
 import { statusBar } from './services/statusBarService.ts';
 import { permissions } from './services/permissionsService.ts';
 import { useKeyboardHandler } from './hooks/useKeyboardHandler.ts';
@@ -88,6 +90,7 @@ import { useBackgroundScanner } from './hooks/useBackgroundScanner.ts';
 import { initDB, getSongs, getPlaylists, savePlaylists, getProfile, saveProfile, getVideos, getReelPlaylists, saveReelPlaylists, getPlayQueue, savePlayQueue, getRadioPlaylists, saveRadioPlaylists, addOrUpdateSongs, deleteSongFromDB, addOrUpdateVideos, getChatHistory, clearStore, saveArtist, defaultProfile } from './components/db.ts';
 import { navItems, fonts, achievements, FAVORITES_PLAYLIST_ID, themePairs, morningTheme, middayTheme, eveningTheme, earlyNightTheme, midnightTheme, lateNightTheme, getRandomCoverArt, defaultMoods, themeCounterparts } from './components/constants.ts';
 import { truncate, findSongByTitle, addToTopSongs, addToTopArtists, addToTopRadios, fadeAudio, scanDeviceForMedia, scanFolderForMedia, processAudioFileBuffer, processVideoFileMeta, getDominantColor, emojiToDataUrl, rgbStringToHsl, hslToCss, forceHttps, getPremiumGradientCover } from './utils/helpers.ts';
+import { AudioFader } from './services/AudioFader.ts';
 import type { Song, Notification as NotificationType, Playlist, ProfileData, Achievement, Video, ThemeColors, ReelPlaylist, RadioStation, RadioPlaylist as RadioPlaylistType } from './types.ts';
 import EmojiPickerModal from './components/EmojiPickerModal.tsx';
 import NeonGlowModal from './components/NeonGlowModal.tsx';
@@ -95,7 +98,8 @@ import NeonGlowModal from './components/NeonGlowModal.tsx';
 import { auth, db, handleFirestoreError, OperationType } from './services/firebase.ts';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { uploadToCloudinary } from './services/cloudinaryService.ts';
+import { uploadToR2 } from './services/r2Service.ts';
+import { adminSongsService } from './services/adminSongsService.ts';
 
 declare global {
   interface Window {
@@ -103,16 +107,7 @@ declare global {
   }
 }
 
-const GEMINI_KEYS = (process.env.GEMINI_KEYS ? process.env.GEMINI_KEYS.split(',') : [
-    'AIzaSyChoQSjIelaNNgnIZrpfhugSt9_On-kuzQ',
-    'AIzaSyA7WFeDV_aK--xVtbXclDkr2q1EQ6TecCc',
-    'AIzaSyAZnBentKVIGKDyWtQ41dwIGeJEfiFmItY',
-    'AIzaSyDM8zZLuG2AvIxQGL1Twoiw2iWiX51wMpw',
-    'AIzaSyBRqaSPUyXfb68sG2GLXfbQpZBg-EQeKEQ',
-    'AIzaSyBNfTqY6CjqliFLBM4GssDre1xyt71_sCY',
-    'AIzaSyDeGJlwd6zKc1F90HsZweGZk7M-CaA8Ql4',
-    'AIzaSyBt4L_Garwq0VC6oDergxc16T7hSEElC0Q'
-]).filter(Boolean);
+const GEMINI_KEYS = (process.env.GEMINI_KEYS ? process.env.GEMINI_KEYS.split(',') : []).filter(Boolean);
 
 const loadingStates = [
   { text: "🎵 Tuning your vibe..." },
@@ -202,6 +197,7 @@ const App = () => {
 
   const [activeView, setActiveView] = useState('Home');
   const [librarySongs, setLibrarySongs] = useState<Song[]>([]);
+  const [adminSongs, setAdminSongs] = useState<Song[]>([]);
   const [videos, setVideos] = useState<Video[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [reelPlaylists, setReelPlaylists] = useState<ReelPlaylist[]>([]);
@@ -212,6 +208,28 @@ const App = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+  // Shared CORS detection: only set crossOrigin for sources that support it.
+  const isCorsSupportedFn = useCallback((url: string): boolean => {
+    if (!url) return false;
+    if (url.startsWith('blob:') || url.startsWith('file:')) return true;
+    if (url.startsWith(window.location.origin)) return true;
+    const corsHostnames = [
+      'jamendo.com', 'audius.co', 'archive.org', 'ia801504.us.archive.org',
+      'storage.googleapis.com',
+      'r2.dev',
+      'r2.cloudflarestorage.com',
+    ];
+    try {
+      const u = new URL(url);
+      return corsHostnames.some(h => u.hostname.includes(h));
+    } catch { return false; }
+  }, []);
+
+  const isOnlineTrack = useMemo(() => {
+    if (!nowPlaying) return false;
+    if (isCorsSupportedFn(nowPlaying.url || '')) return false;
+    return !nowPlaying.nativeUrl && !nowPlaying.audioData;
+  }, [nowPlaying?.id, nowPlaying?.nativeUrl, nowPlaying?.audioData, nowPlaying?.url, isCorsSupportedFn]);
   const [isPlayerOverlayVisible, setIsPlayerOverlayVisible] = useState(false);
   const [isAssistantVisible, setIsAssistantVisible] = useState(false);
   const [assistantView, setAssistantView] = useState<'chat' | 'history'>('chat');
@@ -220,6 +238,9 @@ const App = () => {
   const [modalData, setModalData] = useState<any>(null);
   const [notification, setNotification] = useState<NotificationType | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [needsPermissionsOnboarding, setNeedsPermissionsOnboarding] = useState(() => {
+      return Capacitor.isNativePlatform() && localStorage.getItem('mwijay_permissions_onboarded') !== 'true';
+  });
   const [isLoaded, setIsLoaded] = useState(false);
   const [repeatMode, setRepeatMode] = useState<'none' | 'one' | 'all'>('all');
   const [isShuffled, setIsShuffled] = useState(false);
@@ -288,10 +309,30 @@ const App = () => {
   const retryTimeoutRef = useRef<number | null>(null);
   const wasPlayingBeforeTts = useRef(false);
   const originalVolumeRef = useRef(1);
+  const recentlyUnlockedRef = useRef(new Set<string>());
+  const faderRef = useRef<AudioFader | null>(null);
+
+  const profileRef = useRef(profile);
+  useEffect(() => { profileRef.current = profile; }, [profile]);
+
+  const isDjSessionActiveRef = useRef(isDjSessionActive);
+  useEffect(() => { isDjSessionActiveRef.current = isDjSessionActive; }, [isDjSessionActive]);
+
+  const isTtsSpeakingRef = useRef(isTtsSpeaking);
+  useEffect(() => { isTtsSpeakingRef.current = isTtsSpeaking; }, [isTtsSpeaking]);
+
+  const handleNextRef = useRef<() => void>(() => {});
+
 
   useEffect(() => {
     if (authProfile) {
-      setProfile(authProfile);
+      setProfile(prev => {
+        if (prev && prev.onboarded && !authProfile.onboarded) {
+          console.log('[App] Guarded against overwriting completed onboarding profile with non-onboarded authProfile');
+          return prev;
+        }
+        return authProfile;
+      });
     }
   }, [authProfile]);
 
@@ -390,10 +431,39 @@ const App = () => {
   // Synchronize Tone.js client-side audio engine settings with profile settings
   useEffect(() => {
     if (audioRef.current && profile?.settings) {
-      // 1. Ensure audio engine is initialized with the current audio element
-      audioEngine.init(audioRef.current);
+      const defaultEffectsEnabled = !Capacitor.isNativePlatform();
+      const effectsEnabled = profile.settings.audioEffectsEnabled ?? defaultEffectsEnabled;
+      const bypassDsp = isOnlineTrack || !effectsEnabled || (audioRef.current as any)?._bypassDsp === true;
+
+      // Update original volume reference
+      const rawVolume = typeof profile.settings.maximizer?.volume === 'number' && !isNaN(profile.settings.maximizer.volume) 
+        ? profile.settings.maximizer.volume 
+        : 1.0;
+
+      if (bypassDsp) {
+        originalVolumeRef.current = Math.max(0.1, Math.min(1.0, rawVolume));
+        // Apply volume immediately to the element
+        audioRef.current.volume = originalVolumeRef.current;
+      } else {
+        originalVolumeRef.current = 1.0;
+        // Apply full volume to the element so that the Web Audio Graph gets the full input signal
+        audioRef.current.volume = 1.0;
+      }
+
       audioEngine.setCurrentSong(nowPlaying);
       audioEngine.setIsPlaying(isPlaying);
+
+      // CRITICAL FIX: Do NOT call audioEngine.init() when effects are disabled.
+      // audioEngine.init() creates a MediaElementAudioSourceNode which HIJACKS
+      // the audio element — all audio is routed through Web Audio instead of
+      // playing directly to speakers. If the Web Audio graph is broken or
+      // context is suspended, the element "plays" but produces NO SOUND.
+      if (bypassDsp) {
+        return;
+      }
+
+      // Only initialize audio engine when effects are actually enabled
+      audioEngine.init(audioRef.current);
 
       // 2. Synchronize Equalizer bands (average 5 bands to 3)
       const eq = profile.settings.equalizer;
@@ -423,7 +493,8 @@ const App = () => {
     profile?.settings?.creative?.filter,
     (profile?.settings as any)?.voiceEffect,
     nowPlaying?.id,
-    isPlaying
+    isPlaying,
+    isOnlineTrack
   ]);
 
   useEffect(() => {
@@ -451,15 +522,31 @@ const App = () => {
   }, []);
 
   const getTransitionDuration = useCallback(() => {
-      return (profile?.settings.transitionDuration || 2) * 200;
+      const val = profile?.settings.transitionDuration;
+      return (val !== undefined ? val : 2) * 1000;
   }, [profile?.settings.transitionDuration]);
 
   useEffect(() => {
     const audio = audioRef.current;
-    if(audio) {
-        initializeAudioFx(audio);
+    if (audio) {
+        const defaultEffectsEnabled = !Capacitor.isNativePlatform();
+        const effectsEnabled = profile?.settings?.audioEffectsEnabled ?? defaultEffectsEnabled;
+      const bypassDsp = isOnlineTrack || !effectsEnabled || (audioRef.current as any)?._bypassDsp === true;
+
+        if (bypassDsp) {
+            console.log('[AudioEngine] Bypassing Tone.js to ensure ultra-stable direct playback');
+        } else {
+            console.log('[AudioEngine] Connecting Tone.js for local/CORS-safe track:', nowPlaying?.title);
+            initializeAudioFx(audio);
+        }
     }
-  }, [initializeAudioFx]);
+  }, [initializeAudioFx, isOnlineTrack, nowPlaying?.id, profile?.settings?.audioEffectsEnabled]);
+
+  useEffect(() => {
+    if (audioFx) {
+        audioEngine.setNextNode(audioFx.preamp);
+    }
+  }, [audioFx]);
 
   useEffect(() => {
     if (profile && audioFx) {
@@ -533,6 +620,11 @@ const App = () => {
             setPlaylists(playlistsData);
             setReelPlaylists(reelPlaylistsData);
             setRadioPlaylists(radioPlaylistsData);
+
+            // Fetch admin uploads for "Mwijay Originals"
+            adminSongsService.getAllAsSongs().then(songs => {
+              if (isMounted.current) setAdminSongs(songs);
+            }).catch(err => console.warn('Failed to load admin songs:', err));
             
             // Try loading profile, if fails, use default
             let loadedProfile = null;
@@ -543,7 +635,13 @@ const App = () => {
                 }
             } catch (pErr) {
                 console.warn("Profile load failed, using default:", pErr);
-                loadedProfile = defaultProfile;
+            }
+            
+            if (!loadedProfile) {
+                loadedProfile = { ...defaultProfile };
+            }
+            if (localStorage.getItem('mwijay_onboarded') === 'true') {
+                loadedProfile.onboarded = true;
             }
             
             // Deduplicate achievements on load
@@ -603,7 +701,11 @@ const App = () => {
         console.error("Initialization error:", String(err));
         // Fallback for profile to avoid blank screen if init failed partially
         if (isMounted.current) {
-             setProfile(defaultProfile);
+             const fallbackProfile = { ...defaultProfile };
+             if (localStorage.getItem('mwijay_onboarded') === 'true') {
+                 fallbackProfile.onboarded = true;
+             }
+             setProfile(fallbackProfile);
         }
       } finally {
         if (isMounted.current) {
@@ -691,11 +793,11 @@ const App = () => {
 
   useEffect(() => {
     if (activeView === 'PartyMode' || activeView === 'ZenMode') {
-      statusBar.setThemeColor('#000000').catch(() => {});
+      statusBar.setBackgroundColor('#000000').catch(() => {});
     } else if (nowPlaying && isPlayerOverlayVisible) {
-      statusBar.setThemeColor(dominantColor || '#000000').catch(() => {});
+      statusBar.setBackgroundColor(dominantColor || '#000000').catch(() => {});
     } else {
-      statusBar.setThemeColor('#1e1b4b').catch(() => {});
+      statusBar.setBackgroundColor('#1e1b4b').catch(() => {});
     }
   }, [activeView, nowPlaying, isPlayerOverlayVisible, dominantColor]);
 
@@ -733,12 +835,19 @@ const App = () => {
     const currentUnlockedIds = new Set(currentProfile.unlockedAchievements.map(a => a.id));
     
     achievements.forEach(ach => {
-        if (!currentUnlockedIds.has(ach.id) && ach.criteria({ ...currentProfile, librarySongs, playlists }, type, value)) {
+        if (!currentUnlockedIds.has(ach.id) && !recentlyUnlockedRef.current.has(ach.id) && ach.criteria({ ...currentProfile, librarySongs, playlists }, type, value)) {
             newlyUnlocked.push(ach);
         }
     });
 
     if (newlyUnlocked.length > 0) {
+        // In-memory dedup guard — prevents React 18 StrictMode double-invocation
+        // and rapid re-triggers from firing TTS/sound twice for the same achievement.
+        newlyUnlocked.forEach(ach => {
+            recentlyUnlockedRef.current.add(ach.id);
+            setTimeout(() => recentlyUnlockedRef.current.delete(ach.id), 5000);
+        });
+
         updateProfileRef.current?.(p => {
             const existingIds = new Set(p.unlockedAchievements.map(a => a.id));
             const uniqueNew = newlyUnlocked
@@ -863,6 +972,10 @@ const App = () => {
       }
   }, [playQueue.length, currentQueueIndex, playHapticImpact, isShuffled, shuffleOrder]);
 
+  useEffect(() => {
+      handleNextRef.current = handleNext;
+  }, [handleNext]);
+
   const handlePrev = useCallback(() => {
     if (playQueue.length === 0) return;
     playHapticImpact();
@@ -884,8 +997,18 @@ const App = () => {
           clearInterval(radioTimerRef.current);
           radioTimerRef.current = null;
       }
-      fadeAudio(audio, 0, getTransitionDuration(), () => audio.pause());
-  }, [getTransitionDuration]);
+      // Smooth fade-out over 500ms then pause
+      if (!faderRef.current) {
+          faderRef.current = new AudioFader(audio);
+      }
+      faderRef.current.fadeOut(500).then(() => {
+          const el = audioRef.current;
+          if (el) {
+              el.pause();
+              el.volume = originalVolumeRef.current; // Restore for next play
+          }
+      }).catch(() => {});
+  }, []);
   
   const handlePlay = useCallback(() => {
     const audio = audioRef.current;
@@ -902,19 +1025,29 @@ const App = () => {
     }
     if (audio.paused) {
         audio.volume = 0;
-        fadeAudio(audio, originalVolumeRef.current, getTransitionDuration());
     }
     
     // Safety Wrapper for Play Request
     const playPromise = audio.play();
     if (playPromise !== undefined) {
-        playPromise.catch(error => {
+        playPromise.then(() => {
+            // Smooth fade-in over 300ms after play succeeds
+            if (!faderRef.current) faderRef.current = new AudioFader(audio);
+            faderRef.current.targetMaxVolume = originalVolumeRef.current;
+            faderRef.current.fadeIn(300).catch(() => {});
+        }).catch(error => {
+            // Restore volume on failure so next attempt works
+            if (audioRef.current) audioRef.current.volume = originalVolumeRef.current;
             // Silence "The play() request was interrupted by a new load request"
             if (error.name === 'AbortError' || error.message?.includes('interrupted')) {
                 return;
             }
             console.error("Play failed", String(error));
         });
+    } else {
+        if (!faderRef.current) faderRef.current = new AudioFader(audio);
+        faderRef.current.targetMaxVolume = originalVolumeRef.current;
+        faderRef.current.fadeIn(300).catch(() => {});
     }
     
     setIsPlaying(true);
@@ -946,19 +1079,22 @@ const App = () => {
     }
   }, [duration]);
 
-  useBackgroundMedia(nowPlaying, isPlaying, progress, duration, {
+  useBackgroundMedia(audioRef, nowPlaying, isPlaying, progress, duration, {
     onPlay: handlePlay,
     onPause: handlePause,
     onNext: handleNext,
     onPrev: handlePrev,
-    onSeekForward: (details) => handleSeekBy(details.seekOffset || 10),
-    onSeekBackward: (details) => handleSeekBy(-(details.seekOffset || 10)),
-    onSeekTo: (details) => {
+    onSeekForward: (details: any) => handleSeekBy(details.seekOffset || 10),
+    onSeekBackward: (details: any) => handleSeekBy(-(details.seekOffset || 10)),
+    onSeekTo: (details: any) => {
         if (details.seekTime && audioRef.current) {
             audioRef.current.currentTime = details.seekTime;
             setProgress(details.seekTime);
         }
     },
+    onLike: () => {
+        handleToggleFavorite(nowPlaying?.id);
+    }
   });
 
   useBackgroundScanner({
@@ -1086,6 +1222,10 @@ const App = () => {
       playHapticImpact();
       setViewHistory(prev => [...prev, view]);
       setActiveView(view);
+      if (view === 'Reels') {
+          setIsBottomNavHidden(true);
+          setIsMiniPlayerHidden(true);
+      }
     };
     
   const handleToggleShuffle = () => {
@@ -1114,12 +1254,23 @@ const App = () => {
 
   const handleScanForMedia = async () => {
       if (!profile) return;
+      
+      // Explicitly request storage permissions with highest priority before scanning local media
+      if (Capacitor.isNativePlatform()) {
+          const storageStatus = await permissions.request('storage');
+          if (!storageStatus.granted) {
+              showNotification('Storage permission is required to scan device media.', 'error');
+              return;
+          }
+      }
+
       setUploadProgress({ current: 0, total: 1, fileName: 'Starting scan...' });
       try {
           const { songs: newSongs, videos: newVideos } = await scanDeviceForMedia( (current, total, fileName) => setUploadProgress({ current, total, fileName }), profile.settings.scannerSettings );
           if (newSongs.length > 0) {
               await addOrUpdateSongs(newSongs);
-              setLibrarySongs(prev => [...prev.filter(s => !newSongs.some(ns => ns.id === s.id)), ...newSongs]);
+              const newSongIds = new Set(newSongs.map(s => s.id));
+              setLibrarySongs(prev => [...prev.filter(s => !newSongIds.has(s.id)), ...newSongs]);
               updateProfile(p => {
                   if (!p) return p;
                   const updatedProfile = { 
@@ -1131,7 +1282,7 @@ const App = () => {
                   };
                   return addXpClientSide(
                       updatedProfile,
-                      20 * newSongs.length,
+                      50,
                       `Uploaded ${newSongs.length} local songs`,
                       (newLvl, rewards) => {
                           const rankTitle = getTitleForLevel(newLvl);
@@ -1147,7 +1298,8 @@ const App = () => {
           }
           if (newVideos.length > 0) {
               await addOrUpdateVideos(newVideos);
-              setVideos(prev => [...prev.filter(v => !newVideos.some(nv => nv.id === v.id)), ...newVideos]);
+              const newVideoIds = new Set(newVideos.map(v => v.id));
+              setVideos(prev => [...prev.filter(v => !newVideoIds.has(v.id)), ...newVideos]);
           }
           showNotification(`Found ${newSongs.length} new songs and ${newVideos.length} new videos!`, 'success');
       } catch (e) {
@@ -1337,7 +1489,7 @@ const App = () => {
               };
               return addXpClientSide(
                   updatedProfile,
-                  20 * newSongs.length,
+                  50,
                   `Uploaded ${newSongs.length} local songs`,
                   (newLvl, rewards) => {
                       const rankTitle = getTitleForLevel(newLvl);
@@ -1965,12 +2117,60 @@ const App = () => {
     handleBack
   ]);
 
+  // Audio context lifecycle: resume when app comes back to foreground
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('[App] Page visible — resuming audio context');
+        audioEngine.resumeContext().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    let capListener: any = null;
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) handleVisibilityChange();
+      }).then(l => { capListener = l; });
+    }
+
+    // Global gesture listener to start Tone.js on first interaction
+    const startToneOnGesture = () => {
+      audioEngine.resumeContext().catch(() => {});
+      document.removeEventListener('click', startToneOnGesture);
+      document.removeEventListener('touchstart', startToneOnGesture);
+      document.removeEventListener('keydown', startToneOnGesture);
+    };
+    document.addEventListener('click', startToneOnGesture, { passive: true });
+    document.addEventListener('touchstart', startToneOnGesture, { passive: true });
+    document.addEventListener('keydown', startToneOnGesture, { passive: true });
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('click', startToneOnGesture);
+      document.removeEventListener('touchstart', startToneOnGesture);
+      document.removeEventListener('keydown', startToneOnGesture);
+      if (capListener) capListener.remove();
+    };
+  }, []);
+
     useEffect(() => {
         savePlayQueue(playQueue);
         localStorage.setItem('mwijayMusic_currentQueueIndex', currentQueueIndex.toString());
     }, [playQueue, currentQueueIndex]);
     
     const resolveAndPlay = useCallback(async () => {
+        // Ensure Tone.js context is running before any audio operation
+        try {
+          await Tone.start();
+          const ctx = Tone.getContext().rawContext as AudioContext;
+          if (ctx && ctx.state === 'suspended') {
+            await ctx.resume();
+          }
+        } catch (e) {
+          console.warn('[App] Tone.start() in resolveAndPlay:', e);
+        }
+
         setIsSongLoading(true);
         if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
         retryCountRef.current = 0;
@@ -1986,9 +2186,15 @@ const App = () => {
         if (nextSong.source === 'Archive.org' && !nextSong.url) {
             const identifier = nextSong.id.replace('archive-', '');
             try {
-                const metadataResponse = await fetch(`https://archive.org/metadata/${identifier}`);
-                if (!metadataResponse.ok) throw new Error(`Metadata fetch failed: ${metadataResponse.status}`);
-                const metadata = await metadataResponse.json();
+                let metadata;
+                if (Capacitor.isNativePlatform()) {
+                    const response = await CapacitorHttp.get({ url: `https://archive.org/metadata/${identifier}` });
+                    metadata = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+                } else {
+                    const metadataResponse = await fetch(`https://archive.org/metadata/${identifier}`);
+                    if (!metadataResponse.ok) throw new Error(`Metadata fetch failed: ${metadataResponse.status}`);
+                    metadata = await metadataResponse.json();
+                }
                 
                 // Prioritize VBR MP3 > MP3 > OGG
                 let audioFile = metadata.files.find((f: any) => f.format === 'VBR MP3');
@@ -2005,19 +2211,19 @@ const App = () => {
                     nextSong = updatedSong; 
                 } else {
                     showNotification(`No playable audio format found for "${truncate(nextSong.title, 20)}". Skipping.`, 'error');
-                    handleNext();
+                    handleNextRef.current();
                     return;
                 }
             } catch (e) {
                 console.error("Archive fetch error:", e);
                 showNotification(`Network error for "${truncate(nextSong.title, 20)}". Skipping.`, 'error');
-                handleNext();
+                handleNextRef.current();
                 return;
             }
         }
         
         const shouldPlay = isPlayingRef.current || isNewPlayRequest.current;
-        if (nowPlaying?.queueId === nextSong.queueId && !isNewPlayRequest.current) {
+        if (nowPlayingRef.current?.queueId === nextSong.queueId && !isNewPlayRequest.current) {
             setIsSongLoading(false);
             return;
         }
@@ -2027,7 +2233,7 @@ const App = () => {
         if (nextSong.albumArtUrl) getDominantColor(nextSong.albumArtUrl).then(color => setDominantColor(color));
         
         // Award 5 XP for starting a song, and increment songsPlayed count!
-        updateProfile(p => {
+        updateProfileRef.current?.(p => {
             if (!p) return p;
             const updatedSongsPlayed = {
                 ...p,
@@ -2041,16 +2247,21 @@ const App = () => {
                 5, 
                 `Started playing: ${nextSong.title}`,
                 (newLvl, rewards) => {
-                    const rankTitle = getTitleForLevel(newLvl);
-                    setLevelUpData({ level: newLvl, title: rankTitle, rewards });
-                    if (p.settings.notificationsEnabled) {
-                        playAchievementSound();
-                    }
-                    const cleanTitle = rankTitle.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '');
-                    queueSpeech(`Congratulations! You leveled up to level ${newLvl}. You are now a ${cleanTitle}! Keep the music playing!`, 'achievement');
+                     const rankTitle = getTitleForLevel(newLvl);
+                     setLevelUpData({ level: newLvl, title: rankTitle, rewards });
+                     if (p.settings.notificationsEnabled) {
+                         playAchievementSound();
+                     }
+                     const cleanTitle = rankTitle.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '');
+                     queueSpeech(`Congratulations! You leveled up to level ${newLvl}. You are now a ${cleanTitle}! Keep the music playing!`, 'achievement');
                 }
             );
         });
+
+        // Track admin song plays
+        if (nextSong.id.startsWith('mwijay-')) {
+          adminSongsService.recordPlay(nextSong.id);
+        }
 
         const audio = audioRef.current;
         if (!audio) return;
@@ -2071,46 +2282,60 @@ const App = () => {
 
         if (!newSrc) {
             showNotification(`"${truncate(nextSong.title, 20)}" has no audio source. Skipping.`, 'error');
-            handleNext();
+            handleNextRef.current();
             return;
         }
 
-        // Dynamically toggle CORS based on source to resolve "no audio" CORS blockade
-        if (nextSong.duration === Infinity) {
-            // Non-CORS sources (like radio stations) are loaded natively without CORS pre-flight
-            audio.removeAttribute('crossorigin');
-        } else {
-            // All other songs (Jamendo, Cloudinary, Archive.org, local files) require anonymous CORS to prevent silent muting
+        const isCorsSupported = isCorsSupportedFn;
+        if (isCorsSupported(newSrc)) {
             audio.crossOrigin = "anonymous";
+            delete (audio as any)._bypassDsp;
+        } else {
+            audio.removeAttribute('crossorigin');
+            (audio as any)._bypassDsp = true;
         }
         
         const wasPlaying = shouldPlay;
         const transitionDuration = getTransitionDuration();
         
-        const playNewSrc = () => {
+        const playNewSrc = async () => {
+            // Crossfade: fade out current track before changing source
+            if (audio && !audio.paused && wasPlaying && faderRef.current) {
+                try {
+                    await faderRef.current.fadeOut(400);
+                } catch { /* cancelled — continue anyway */ }
+            }
+
             audio.src = newSrc;
             audio.load();
             if (wasPlaying) {
-                if(isDjSessionActive && isTtsSpeaking) {
+                if(isDjSessionActiveRef.current && isTtsSpeakingRef.current) {
                     
                 } else {
                     audio.volume = 0;
-                    fadeAudio(audio, originalVolumeRef.current, transitionDuration);
                     const playPromise = audio.play();
                     if (playPromise !== undefined) {
                         playPromise.then(() => {
                             if (isMounted.current) setIsPlaying(true);
+                            if (!faderRef.current) faderRef.current = new AudioFader(audio);
+                            faderRef.current.targetMaxVolume = originalVolumeRef.current;
+                            faderRef.current.fadeIn(300).catch(() => {});
                         }).catch(error => {
+                            // Restore volume on failure for next attempt
+                            if (audioRef.current) audioRef.current.volume = originalVolumeRef.current;
                             // Specifically ignore interruption error
                             if (error.name === 'AbortError' || error.message?.includes('interrupted')) {
                                 return;
-                            }
-                            if (isMounted.current) {
-                                setIsPlaying(false);
-                            }
+                             }
+                             if (isMounted.current) {
+                                 setIsPlaying(false);
+                             }
                         });
                     } else {
                         if (isMounted.current) setIsPlaying(true);
+                        if (!faderRef.current) faderRef.current = new AudioFader(audio);
+                        faderRef.current.targetMaxVolume = originalVolumeRef.current;
+                        faderRef.current.fadeIn(300).catch(() => {});
                     }
                 }
             } else {
@@ -2118,11 +2343,7 @@ const App = () => {
             }
         };
 
-        if (audio.src && !audio.paused && audio.src !== window.location.href) {
-             fadeAudio(audio, 0, transitionDuration, playNewSrc);
-        } else {
-            playNewSrc();
-        }
+        await playNewSrc();
         
         if (radioTimerRef.current) {
             clearInterval(radioTimerRef.current);
@@ -2131,11 +2352,11 @@ const App = () => {
         setCurrentSessionRadioTime(0);
 
         if (nextSong.source && ['Audius', 'Archive.org'].includes(nextSong.source)) {
-            updateProfile(p => !p ? p : { ...p, recentlyPlayedOnline: [nextSong, ...(p.recentlyPlayedOnline || []).filter(s => s.id !== nextSong.id)].slice(0, 20) });
+            updateProfileRef.current?.(p => !p ? p : { ...p, recentlyPlayedOnline: [nextSong, ...(p.recentlyPlayedOnline || []).filter(s => s.id !== nextSong.id)].slice(0, 20) });
         } else if (nextSong.duration !== Infinity) {
-            updateProfile(p => !p ? p : { ...p, recentlyPlayed: [nextSong.id, ...(p.recentlyPlayed || []).filter(id => id !== nextSong.id)].slice(0, 20) });
+            updateProfileRef.current?.(p => !p ? p : { ...p, recentlyPlayed: [nextSong.id, ...(p.recentlyPlayed || []).filter(id => id !== nextSong.id)].slice(0, 20) });
         }
-    }, [currentQueueIndex, playQueue, profile, handleNext, showNotification, updateProfile, nowPlaying, getTransitionDuration, isDjSessionActive, isTtsSpeaking]);
+    }, [currentQueueIndex, playQueue, showNotification, getTransitionDuration, isCorsSupportedFn]);
 
     useEffect(() => {
         resolveAndPlay();
@@ -2314,8 +2535,13 @@ const App = () => {
                 audioFx.context.resume().catch(e => console.error("Failed to resume context on play", e));
             }
 
+            const transitionDuration = getTransitionDuration();
             if(audio.volume < originalVolumeRef.current && !isTtsSpeaking) {
-                fadeAudio(audio, originalVolumeRef.current, getTransitionDuration());
+                if (transitionDuration <= 0) {
+                    audio.volume = originalVolumeRef.current;
+                } else {
+                    fadeAudio(audio, originalVolumeRef.current, transitionDuration);
+                }
             }
         };
 
@@ -2325,6 +2551,11 @@ const App = () => {
         audio.addEventListener('error', errorHandler);
         audio.addEventListener('canplay', canPlayHandler);
         audio.addEventListener('play', playHandler);
+        
+        // Immediately set duration if metadata is already loaded (avoids lock screen duration lag)
+        if (isFinite(audio.duration) && audio.duration > 0) {
+            setDuration(audio.duration);
+        }
         
         return () => {
             audio.removeEventListener('timeupdate', timeUpdateHandler);
@@ -2370,6 +2601,7 @@ const App = () => {
         }
 
         localStorage.setItem('mwijayMusic_launchedBefore', 'true');
+        localStorage.setItem('mwijay_onboarded', 'true');
     };
     
     const handleEmojiSelect = (emoji: string) => {
@@ -2513,20 +2745,11 @@ const App = () => {
     const handleRequestPermission = useCallback(async (type: 'media' | 'mic' | 'camera') => {
         try {
             if (type === 'media') {
-                if (Capacitor.isNativePlatform()) {
-                    const permStatus = await Filesystem.checkPermissions();
-                    if (permStatus.publicStorage !== 'granted') {
-                        const request = await Filesystem.requestPermissions();
-                        if (request.publicStorage === 'granted') {
-                            showNotification("Storage access granted! You can now scan local music files.", "success");
-                        } else {
-                            showNotification("Storage permission denied. Please allow it in settings.", "error");
-                        }
-                    } else {
-                        showNotification("Storage permission is already granted!", "success");
-                    }
+                const status = await permissions.request('storage');
+                if (status.granted) {
+                    showNotification("Music, Audio & Media access granted! You can now scan local files.", "success");
                 } else {
-                    showNotification("Storage scanning is only available on mobile devices.", "info");
+                    showNotification("Media permission denied. Please allow it in settings.", "error");
                 }
             } else if (type === 'camera') {
                 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -2607,8 +2830,8 @@ const App = () => {
                 const extractedAlbumArt = parsedSong?.albumArtUrl || getPremiumGradientCover(extractedTitle, extractedArtist);
                 
                 try {
-                    // Try to upload to Cloudinary (online sync)
-                    const uploadResult = await uploadToCloudinary(file);
+                    // Try to upload to R2 (online sync)
+                    const uploadResult = await uploadToR2(file);
                     
                     const songId = `cloud-${Date.now()}-${i}`;
                     const newSong: Song = {
@@ -2775,7 +2998,7 @@ const App = () => {
                 );
             }            case 'Reels': return <motion.div key="reels" {...animationProps} className="w-full h-full"><ReelsView videos={videos} reelPlaylists={reelPlaylists} onUpdate={(updater) => setVideos(updater)} onUpdateReelPlaylists={(p) => { setReelPlaylists(p); saveReelPlaylists(p); }} onReelActiveChange={handleReelActiveChange} showNotification={showNotification} profile={profile} onUpdateProfile={updateProfile} onPlayReelAsAudio={handlePlayReelAsAudio} nowPlaying={nowPlaying} onOpenAssistant={handleOpenAssistant} isAssistantOnline={isOnline} onViewReelPlaylist={(id) => { setReelPlaylistToView(reelPlaylists.find(p=>p.id === id) || null); handleNavigate('ReelPlaylist'); }} initialVideoId={initialReelId} onScanDevice={handleScanForMedia} onUploadProgress={() => {}} onToggleReelsUiVisibility={handleToggleReelsUiVisibility} isBottomNavHidden={isBottomNavHidden} /></motion.div>;
             case 'Settings': return <motion.div key="settings" {...animationProps} className="w-full h-full"><SettingsView profile={profile} onUpdateProfile={updateProfile} onNavigate={handleNavigate} showNotification={showNotification} handleManualFileUploads={handleManualFileUploads} onRequestPermission={handleRequestPermission} librarySongs={librarySongs} playlists={playlists} onOpenSongDetails={setSongForDetails} onOpenClearDataModal={handleOpenClearDataModal} onFullRestore={handleFullRestore} /></motion.div>;
-            case 'Profile': return <motion.div key="profile" {...animationProps} className="w-full h-full"><ProfileView profile={profile} onUpdateProfile={updateProfile} onOpenAppearance={() => handleNavigate('Appearance')} onBack={handleBack} onNavigate={handleNavigate} onOpenCameraModal={() => setIsCameraModalOpen(true)} onOpenEmojiPicker={() => setActiveModal('emojiPicker')} /></motion.div>;
+            case 'Profile': return <motion.div key="profile" {...animationProps} className="w-full h-full"><ProfileView profile={profile} onUpdateProfile={updateProfile} onOpenAppearance={() => handleNavigate('Appearance')} onBack={handleBack} onNavigate={handleNavigate} onOpenCameraModal={() => setIsCameraModalOpen(true)} onOpenEmojiPicker={() => setActiveModal('emojiPicker')} showNotification={showNotification} /></motion.div>;
             case 'History': return <motion.div key="history" {...animationProps} className="w-full h-full"><HistoryPage onBack={handleBack} onPlaySong={handlePlaySong} showNotification={showNotification} /></motion.div>;
             case 'Appearance': return <motion.div key="appearance" {...animationProps} className="w-full h-full"><CustomizeAppearanceView profile={profile} onClose={handleBack} onUpdateProfile={updateProfile} showNotification={showNotification} /></motion.div>;
             case 'Artist': return artistToView ? <motion.div key="artist" {...animationProps} className="w-full h-full"><ArtistView artistName={artistToView} allSongs={librarySongs} onPlaySong={handlePlaySong} onBack={handleBack} onSaveArtist={(artist) => { saveArtist(artist); updateProfile(p => ({...p, usedFeatures: {...p.usedFeatures, biographer: true}})); }} onAddSongs={handleAddSongs} showNotification={showNotification} nowPlaying={nowPlaying} apiKey={profile.apiKey} onOpenLyrics={handleOpenLyrics} /></motion.div> : null;
@@ -2814,7 +3037,7 @@ const App = () => {
                         </motion.div>
                     );
                 }
-                return <motion.div key="home" {...animationProps} className="w-full h-full"><HomeView profile={profile} librarySongs={librarySongs} onNavigate={handleNavigate} onPlaySong={handlePlaySong} onOpenAssistant={handleOpenAssistant} onToggleTheme={handleToggleTheme} onOpenAddMoodModal={() => setActiveModal('addMood')} isAssistantOpening={isAssistantOpening} onStartDjSession={handleStartDjSession} isDjSessionStarting={isDjSessionStarting} /></motion.div>;
+                return <motion.div key="home" {...animationProps} className="w-full h-full"><HomeView profile={profile} librarySongs={librarySongs} onNavigate={handleNavigate} onPlaySong={handlePlaySong} onOpenAssistant={handleOpenAssistant} onToggleTheme={handleToggleTheme} onOpenAddMoodModal={() => setActiveModal('addMood')} isAssistantOpening={isAssistantOpening} onStartDjSession={handleStartDjSession} isDjSessionStarting={isDjSessionStarting} adminSongs={adminSongs} /></motion.div>;
         }
     };
   
@@ -2842,7 +3065,10 @@ const App = () => {
 
     return (
     <>
-      <audio ref={audioRef} crossOrigin="anonymous" />
+      <audio 
+        ref={audioRef} 
+        preload="metadata" 
+      />
       <input 
         id="manual-upload-input"
         type="file" 
@@ -2892,7 +3118,11 @@ const App = () => {
         )}
        </AnimatePresence>
       
-      {profile.onboarded && (
+      {profile.onboarded && needsPermissionsOnboarding && (
+          <PermissionsOnboarding onComplete={() => setNeedsPermissionsOnboarding(false)} />
+      )}
+      
+      {profile.onboarded && !needsPermissionsOnboarding && (
         <div className="flex h-full w-full overflow-hidden">
             <Nerve 
                 items={(() => {
@@ -2904,32 +3134,33 @@ const App = () => {
                 })()} 
                 activeItem={activeView} 
                 onItemClick={handleNavigate} 
-                isHidden={isBottomNavHidden || !profile.settings.showNavigationBar || isPlayerOverlayVisible || activeView === 'ZenMode' || activeView === 'PartyMode' || keyboard.isOpen} 
+                isHidden={isBottomNavHidden || !profile.settings.showNavigationBar || isPlayerOverlayVisible || activeView === 'ZenMode' || activeView === 'PartyMode' || activeView === 'MusicQuiz' || keyboard.isOpen} 
                 profile={profile}
                 isCollapsed={isSidebarCollapsed}
                 onToggleCollapse={handleToggleSidebar}
             />
             <div className="flex-1 relative h-full overflow-hidden">
                 <AnimatePresence mode="wait">{currentView()}</AnimatePresence>
-                
-                <AnimatePresence>
-                    {!isMiniPlayerHidden && nowPlaying && !isPlayerOverlayVisible && !profile.settings.simpleMode.enabled && activeView !== 'PartyMode' && activeView !== 'ZenMode' && !keyboard.isOpen && (
-                        <MiniPlayer 
-                            song={nowPlaying} 
-                            isPlaying={isPlaying} 
-                            progress={progress} 
-                            duration={duration} 
-                            onTogglePlay={handleTogglePlay} 
-                            onShowPlayer={() => setIsPlayerOverlayVisible(true)} 
-                            onToggleFavorite={() => handleToggleFavorite(nowPlaying.id)} 
-                            onNext={handleNext} 
-                            isFooterHidden={isBottomNavHidden || !profile.settings.showNavigationBar || isPlayerOverlayVisible || activeView === 'ZenMode' || activeView === 'PartyMode'}
-                            onToggleFooter={() => setIsBottomNavHidden(prev => !prev)}
-                            profile={profile}
-                        />
-                    )}
-                </AnimatePresence>
             </div>
+            
+            <AnimatePresence>
+                {!isMiniPlayerHidden && nowPlaying && !isPlayerOverlayVisible && !profile.settings.simpleMode.enabled && activeView !== 'PartyMode' && activeView !== 'ZenMode' && activeView !== 'MusicQuiz' && !keyboard.isOpen && (
+                    <MiniPlayer 
+                        song={nowPlaying} 
+                        isPlaying={isPlaying} 
+                        progress={progress} 
+                        duration={duration} 
+                        onTogglePlay={handleTogglePlay} 
+                        onShowPlayer={() => setIsPlayerOverlayVisible(true)} 
+                        onToggleFavorite={() => handleToggleFavorite(nowPlaying.id)} 
+                        onNext={handleNext} 
+                        onPrev={handlePrev} 
+                        isFooterHidden={isBottomNavHidden || !profile.settings.showNavigationBar || isPlayerOverlayVisible || activeView === 'ZenMode' || activeView === 'PartyMode' || activeView === 'MusicQuiz'}
+                        onToggleFooter={() => setIsBottomNavHidden(prev => !prev)}
+                        profile={profile}
+                    />
+                )}
+            </AnimatePresence>
         </div>
       )}
 
@@ -3026,6 +3257,7 @@ const App = () => {
             {uploadProgress && <UploadToast progress={uploadProgress} onDismiss={() => setUploadProgress(null)} />}
         </AnimatePresence>
       </div>
+      
       {isCameraModalOpen && <CameraCaptureModal onCapture={(dataUrl) => { updateProfile(p => ({...p, avatarUrl: dataUrl})); setIsCameraModalOpen(false); }} onClose={() => setIsCameraModalOpen(false)} />}
       <AnimatePresence>{achievementToast && <AchievementUnlockedToast achievement={achievementToast} />}</AnimatePresence>
       <AnimatePresence>

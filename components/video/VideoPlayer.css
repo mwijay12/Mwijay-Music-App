@@ -1,0 +1,264 @@
+.video-player {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #000;
+  overflow: hidden;
+  user-select: none;
+}
+
+.video-player--fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+}
+
+.video-element {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.video-controls {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.7) 100%);
+  transition: opacity 0.3s ease;
+  z-index: 10;
+}
+
+.video-controls.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.video-top-bar {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  gap: 12px;
+}
+
+.video-title-area {
+  flex: 1;
+  min-width: 0;
+}
+
+.video-title {
+  margin: 0;
+  font-size: 16px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.video-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+}
+
+.video-center-zone {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-big-play {
+  width: 64px;
+  height: 64px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+
+.video-bottom-bar {
+  padding: 16px;
+}
+
+.video-seek-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.video-seek-wrapper {
+  flex: 1;
+  position: relative;
+  height: 4px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 2px;
+}
+
+.video-seek-bar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.video-seek-fill {
+  height: 100%;
+  background: #A8E040;
+  border-radius: 2px;
+}
+
+.video-time {
+  color: #fff;
+  font-size: 12px;
+  font-family: monospace;
+  min-width: 40px;
+}
+
+.video-buttons-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.video-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.video-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.video-btn:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.video-btn--large {
+  font-size: 24px;
+}
+
+.video-volume-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.video-volume-bar {
+  width: 60px;
+}
+
+.video-speed-control {
+  position: relative;
+}
+
+.video-speed-menu {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  background: rgba(30,30,30,0.9);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.video-speed-option {
+  background: none;
+  border: none;
+  color: #fff;
+  padding: 4px 12px;
+  text-align: left;
+  border-radius: 4px;
+}
+
+.video-speed-option.active {
+  color: #A8E040;
+  background: rgba(168, 224, 64, 0.1);
+}
+
+.video-playlist-sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 250px;
+  background: rgba(20,20,20,0.95);
+  backdrop-filter: blur(15px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+}
+
+.video-playlist-header {
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  color: #fff;
+  font-weight: bold;
+}
+
+.video-playlist-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.video-playlist-item {
+  width: 100%;
+  padding: 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  border-radius: 8px;
+  color: rgba(255,255,255,0.8);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.video-playlist-item:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.video-playlist-item.active {
+  background: rgba(168, 224, 64, 0.1);
+  color: #A8E040;
+}
+
+.playlist-item-title {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlist-item-duration {
+  font-size: 11px;
+  opacity: 0.6;
+}

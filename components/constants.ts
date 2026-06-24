@@ -1,16 +1,7 @@
 
 import type { User, Song, Video, ThemePair, Font, Achievement, NameplateAnimation, ThemeColors, ProfileData, Playlist } from '../types.ts';
 
-export const GEMINI_KEYS = (typeof process !== 'undefined' && process.env.GEMINI_KEYS ? process.env.GEMINI_KEYS.split(',') : [
-    'AIzaSyChoQSjIelaNNgnIZrpfhugSt9_On-kuzQ',
-    'AIzaSyA7WFeDV_aK--xVtbXclDkr2q1EQ6TecCc',
-    'AIzaSyAZnBentKVIGKDyWtQ41dwIGeJEfiFmItY',
-    'AIzaSyDM8zZLuG2AvIxQGL1Twoiw2iWiX51wMpw',
-    'AIzaSyBRqaSPUyXfb68sG2GLXfbQpZBg-EQeKEQ',
-    'AIzaSyBNfTqY6CjqliFLBM4GssDre1xyt71_sCY',
-    'AIzaSyDeGJlwd6zKc1F90HsZweGZk7M-CaA8Ql4',
-    'AIzaSyBt4L_Garwq0VC6oDergxc16T7hSEElC0Q'
-]).filter(Boolean);
+export const GEMINI_KEYS = (typeof process !== 'undefined' && process.env.GEMINI_KEYS ? process.env.GEMINI_KEYS.split(',') : []).filter(Boolean);
 
 const defaultGradients = [
     // Original
@@ -111,6 +102,8 @@ export const visualizers = [
     { id: 'none', name: 'None', icon: 'Ban' },
     { id: 'beat-pulse', name: 'Beat Pulse', icon: 'Activity' },
     { id: 'spectral', name: 'Spectral', icon: 'BarChart3' },
+    { id: 'beat-synced-spectral', name: 'Beat Synced', icon: 'BarChart' },
+    { id: 'rhythmic-grid', name: 'Rhythmic Grid', icon: 'Grid' },
     { id: 'galaxy', name: 'Galaxy', icon: 'Sparkles' },
     { id: 'tunnel', name: 'Tunnel', icon: 'Target' },
     { id: 'particles', name: 'Particles', icon: 'Atom' },

@@ -1,8 +1,32 @@
 
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import type { Song, Playlist, ProfileData, Video, ReelPlaylist, RadioPlaylist, Artist, Reminder, ChatMessage } from '../types.ts';
 import { user, getRandomCoverArt } from './constants.ts'; 
 import { forceHttps, getPremiumGradientCover } from '../utils/helpers.ts';
+
+const universalFetch = async (url: string, options?: any) => {
+    if (Capacitor.isNativePlatform()) {
+        try {
+            const method = options?.method || 'GET';
+            const response = await CapacitorHttp.request({
+                url,
+                method,
+                headers: options?.headers,
+                data: options?.body
+            });
+            return {
+                ok: response.status >= 200 && response.status < 300,
+                status: response.status,
+                statusText: String(response.status),
+                json: async () => typeof response.data === 'string' ? JSON.parse(response.data) : response.data,
+                text: async () => typeof response.data === 'string' ? response.data : JSON.stringify(response.data),
+            };
+        } catch (e) {
+            console.error('[universalFetch] Native CapacitorHttp request failed, falling back to fetch', e);
+        }
+    }
+    return fetch(url, options);
+};
 
 const DB_NAME = 'MwijayMusicDB';
 const DB_VERSION = 24; 
@@ -50,6 +74,7 @@ export const defaultProfile: ProfileData = {
         visualDjMode: false,
         aiDjTransitions: false,
         dataSaverMode: true,
+        audioEffectsEnabled: true,
         visualizerSettings: { type: 'spectral', spinSpeed: 8, albumArtShape: 'circle', albumArtSize: 0.9, useAlbumArtColor: false, beatSync: false },
         lyricsSettings: { fontSize: 20, fontFamily: 'Satoshi', animation: 'scroll', animationSpeed: 10 },
         equalizer: { bands: [0, 0, 0, 0, 0], preamp: 1 },
@@ -65,6 +90,7 @@ export const defaultProfile: ProfileData = {
         backgroundEffects: { enabled: true, style: 'aurora' },
         edgeLighting: { enabled: false, depth: 2, radius: 20, speed: 5 },
         assistant: { voice: 'Zephyr', audibleGreeting: true, personality: 'friendly', readResponses: true },
+        showTrendingCharts: true,
     },
     analytics: { listenTime: 0, radioListenTime: 0, songsUploaded: 0, songsPlayed: 0, reelsWatched: 0, songsShuffled: 0, assistantUses: 0, songsDownloaded: 0, metronomeUsageTime: 0, songsEdited: 0, topSongs: [], topArtists: [], topRadios: [], weeklyActivity: [0, 0, 0, 0, 0, 0, 0] },
     unlockedAchievements: [],
@@ -413,7 +439,7 @@ const RADIO_API_BASE = 'https://de1.api.radio-browser.info/json';
 
 export const fetchRadioAPI = async <T>(path: string): Promise<T> => {
     try {
-        const response = await fetch(`${RADIO_API_BASE}${path}`);
+        const response = await universalFetch(`${RADIO_API_BASE}${path}`);
         if (!response.ok) throw new Error(`Radio API error: ${response.statusText}`);
         return response.json();
     } catch (e) {
@@ -424,7 +450,7 @@ export const fetchRadioAPI = async <T>(path: string): Promise<T> => {
 
 export const fetchFromAudius = async (query: string, _page = 1, limit = 200): Promise<Song[]> => {
     try {
-        const response = await fetch(`https://discoveryprovider.audius.co/v1/tracks/search?query=${encodeURIComponent(query)}&app_name=MwijayMusicApp&page=${_page}&limit=${limit}`);
+        const response = await universalFetch(`https://discoveryprovider.audius.co/v1/tracks/search?query=${encodeURIComponent(query)}&app_name=MwijayMusicApp&page=${_page}&limit=${limit}`);
         if(!response.ok) throw new Error('Audius API error');
         const json = await response.json();
         return (json.data || []).map((track: any): Song => ({
@@ -444,7 +470,7 @@ export const fetchFromAudius = async (query: string, _page = 1, limit = 200): Pr
 
 export const fetchFromCcMixter = async (query: string, limit = 50): Promise<Song[]> => {
     try {
-        const response = await fetch(`http://ccmixter.org/api/query?tags=${encodeURIComponent(query)}&f=json&limit=${limit}`);
+        const response = await universalFetch(`http://ccmixter.org/api/query?tags=${encodeURIComponent(query)}&f=json&limit=${limit}`);
         if (!response.ok) throw new Error('ccMixter API error');
         const json = await response.json();
         
@@ -465,7 +491,7 @@ export const fetchFromCcMixter = async (query: string, limit = 50): Promise<Song
 
 export const fetchFromHearThis = async (query: string, limit = 50): Promise<Song[]> => {
     try {
-        const response = await fetch(`https://hearthis.at/api/search?q=${encodeURIComponent(query)}&count=${limit}&page=1`);
+        const response = await universalFetch(`https://hearthis.at/api/search?q=${encodeURIComponent(query)}&count=${limit}&page=1`);
         if (!response.ok) throw new Error('HearThis.at API error');
         const json = await response.json();
         
@@ -494,19 +520,19 @@ export const fetchFromArchive = async (
     options?: { collection?: string; sort?: string; format?: string }
 ): Promise<Song[]> => {
     try {
-        let searchQuery = `(${query}) AND mediatype:(audio)`;
+        let searchQuery = `(${query})`;
         if (category === 'live') {
             searchQuery += ' AND collection:(etree)';
         } else if (category === '78rpm') {
             searchQuery += ' AND collection:(78rpm)';
         } else if (category === 'swahili') {
-            searchQuery = `(taarab OR swahili OR zanzibar OR "coast music") AND mediatype:(audio)`;
+            searchQuery = `(taarab OR swahili OR zanzibar OR "coast music")`;
         } else if (category === 'bongoflava') {
-            searchQuery = `(tanzania OR "bongo flava" OR bongoflava) AND mediatype:(audio)`;
+            searchQuery = `(tanzania OR "bongo flava" OR bongoflava)`;
         } else if (category === 'classical') {
-            searchQuery = `(${query} OR classical) AND collection:(classicalmusi) AND mediatype:(audio)`;
+            searchQuery = `(${query} OR classical) AND collection:(classicalmusi)`;
         } else if (category === 'jazz') {
-            searchQuery = `(${query} OR jazz) AND (subject:(jazz) OR collection:(unlockedrecordings)) AND mediatype:(audio)`;
+            searchQuery = `(${query} OR jazz) AND (subject:(jazz) OR collection:(unlockedrecordings))`;
         }
         
         if (options?.collection && options.collection !== 'all') {
@@ -525,7 +551,7 @@ export const fetchFromArchive = async (
         
         const fields = 'identifier,title,creator,downloads,subject';
         
-        const response = await fetch(`https://archive.org/advancedsearch.php?q=${encodeURIComponent(searchQuery)}&fl[]=${fields}&sort[]=${sortParam}&rows=${limit}&page=${page}&output=json`);
+        const response = await universalFetch(`https://archive.org/advancedsearch.php?q=${encodeURIComponent(searchQuery)}&fl[]=${fields}&sort[]=${sortParam}&rows=${limit}&page=${page}&output=json`);
         if(!response.ok) throw new Error('Archive.org API error');
         const json = await response.json();
         
@@ -557,7 +583,7 @@ export const fetchFromJamendo = async (query: string, _page = 1, limit = 200): P
     const keys = ['f28b4a9b', 'a2d99c7d'];
     for (const key of keys) {
         try {
-            const response = await fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=${key}&format=jsonpretty&limit=${limit}&search=${encodeURIComponent(query)}`);
+            const response = await universalFetch(`https://api.jamendo.com/v3.0/tracks/?client_id=${key}&format=jsonpretty&limit=${limit}&search=${encodeURIComponent(query)}`);
             if (!response.ok) throw new Error('Jamendo API error');
             const json = await response.json();
             if (!json.results) continue;
@@ -580,7 +606,7 @@ export const fetchFromJamendo = async (query: string, _page = 1, limit = 200): P
 
 export const fetchFromLibriVox = async (query: string, limit = 50): Promise<Song[]> => {
     try {
-        const response = await fetch(`https://librivox.org/api/feed/audiobooks/?title=~${encodeURIComponent(query)}&format=json`);
+        const response = await universalFetch(`https://librivox.org/api/feed/audiobooks/?title=~${encodeURIComponent(query)}&format=json`);
         if (!response.ok) throw new Error('LibriVox API error');
         const json = await response.json();
         

@@ -83,6 +83,7 @@ const Header: React.FC<HeaderProps> = ({ profile, onAvatarClick, onToggleTheme, 
                     ) : (
                         <img
                             src={profile.avatarUrl || 'https://via.placeholder.com/150'}
+                            referrerPolicy="no-referrer"
                             alt="User Avatar"
                             className="w-12 h-12 rounded-full object-cover border border-[var(--surface-border-color)]"
                             onError={(e) => {

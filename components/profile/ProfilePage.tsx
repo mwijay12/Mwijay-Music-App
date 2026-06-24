@@ -110,6 +110,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onBack, showNotificati
             ) : null}
             <img 
               src={profile.avatarUrl || 'https://via.placeholder.com/150'} 
+              referrerPolicy="no-referrer"
               alt={profile.name} 
               className="w-full h-full object-cover"
             />

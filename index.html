@@ -2,6 +2,49 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      // Globally intercept malformed URIs at the absolute earliest point (before any CDN or local scripts run)
+      (function() {
+        var originalDecodeURIComponent = window.decodeURIComponent;
+        window.decodeURIComponent = function(str) {
+          if (typeof str !== 'string') return originalDecodeURIComponent(str);
+          try {
+            return originalDecodeURIComponent(str);
+          } catch (e) {
+            if (e instanceof URIError) {
+              console.warn("[Global Intercept] Caught malformed URI in decodeURIComponent:", str);
+              try {
+                // Sanitize raw percent signs not followed by 2 hex digits by replacing % with %25
+                var sanitized = str.replace(/%(?![0-9a-fA-F]{2})/g, '%25');
+                return originalDecodeURIComponent(sanitized);
+              } catch (innerErr) {
+                return str; // Return the original string as-is if decoding still fails
+              }
+            }
+            throw e;
+          }
+        };
+
+        var originalDecodeURI = window.decodeURI;
+        window.decodeURI = function(str) {
+          if (typeof str !== 'string') return originalDecodeURI(str);
+          try {
+            return originalDecodeURI(str);
+          } catch (e) {
+            if (e instanceof URIError) {
+              console.warn("[Global Intercept] Caught malformed URI in decodeURI:", str);
+              try {
+                var sanitized = str.replace(/%(?![0-9a-fA-F]{2})/g, '%25');
+                return originalDecodeURI(sanitized);
+              } catch (innerErr) {
+                return str;
+              }
+            }
+            throw e;
+          }
+        };
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

@@ -4,18 +4,20 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
+  const isElectronBuild = process.env.ELECTRON_BUILD === 'true';
   return {
+    base: isElectronBuild ? './' : '/',
     define: {
       'process.env.GEMINI_KEYS': JSON.stringify(env.GEMINI_KEYS),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.CLOUDINARY_CLOUD_NAME': JSON.stringify(env.CLOUDINARY_CLOUD_NAME),
-      'process.env.CLOUDINARY_API_KEY': JSON.stringify(env.CLOUDINARY_API_KEY),
-      'process.env.CLOUDINARY_API_SECRET': JSON.stringify(env.CLOUDINARY_API_SECRET),
-      'process.env.VITE_CLOUDINARY_UPLOAD_PRESET': JSON.stringify(env.VITE_CLOUDINARY_UPLOAD_PRESET),
+
+      'process.env.GROQ_KEYS': JSON.stringify(env.GROQ_KEYS),
       'process.env.GROQ_API_KEY': JSON.stringify(env.GROQ_API_KEY),
+      'process.env.OPENROUTER_KEYS': JSON.stringify(env.OPENROUTER_KEYS),
       'process.env.OPENROUTER_API_KEY': JSON.stringify(env.OPENROUTER_API_KEY),
+      'process.env.CEREBRAS_KEYS': JSON.stringify(env.CEREBRAS_KEYS),
       'process.env.CEREBRAS_API_KEY': JSON.stringify(env.CEREBRAS_API_KEY),
       'process.env.AUDIODB_API_KEY': JSON.stringify(env.AUDIODB_API_KEY),
       'process.env.JAMENDO_CLIENT_ID_1': JSON.stringify(env.JAMENDO_CLIENT_ID_1),

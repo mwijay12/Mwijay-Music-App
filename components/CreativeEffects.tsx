@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import { getSharedAudioContext, resumeSharedContext } from '../services/sharedAudioContext';
 
 interface CreativeEffectsProps {
     onClose: () => void;
@@ -8,8 +9,6 @@ interface CreativeEffectsProps {
 
 const CreativeEffects: React.FC<CreativeEffectsProps> = ({ onClose, audioRef }) => {
     const [filterValue, setFilterValue] = useState(0); // -1 for LPF, 0 for neutral, 1 for HPF
-    const audioContextRef = useRef<AudioContext | null>(null);
-    const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
     const lpfRef = useRef<BiquadFilterNode | null>(null);
     const hpfRef = useRef<BiquadFilterNode | null>(null);
 
@@ -17,37 +16,41 @@ const CreativeEffects: React.FC<CreativeEffectsProps> = ({ onClose, audioRef }) 
         const audio = audioRef.current;
         if (!audio) return;
 
-        if (!audioContextRef.current) {
-            const context = new (window.AudioContext || (window as any).webkitAudioContext)();
-            audioContextRef.current = context;
-            
-            // Ensure we don't create multiple sources for the same element
-            if (!sourceRef.current || sourceRef.current.mediaElement !== audio) {
-                sourceRef.current = context.createMediaElementSource(audio);
-            }
+        const context = getSharedAudioContext();
+        resumeSharedContext().catch(() => {});
 
-            const lpf = context.createBiquadFilter();
-            lpf.type = 'lowpass';
-            lpfRef.current = lpf;
-
-            const hpf = context.createBiquadFilter();
-            hpf.type = 'highpass';
-            hpfRef.current = hpf;
-
-            sourceRef.current.connect(lpf).connect(hpf).connect(context.destination);
+        // Reuse the existing MediaElementAudioSourceNode from audioEngine
+        // Web Audio only allows ONE per element — never create a second
+        const source = (audio as any)._mediaElementSource as MediaElementAudioSourceNode;
+        if (!source) {
+            console.warn('[CreativeEffects] No MediaElementAudioSourceNode found — audioEngine.init() may not have run yet');
+            return;
         }
-        
+
+        const lpf = context.createBiquadFilter();
+        lpf.type = 'lowpass';
+        lpfRef.current = lpf;
+
+        const hpf = context.createBiquadFilter();
+        hpf.type = 'highpass';
+        hpfRef.current = hpf;
+
+        source.connect(lpf).connect(hpf);
+
         return () => {
-            // We don't close the context, as it might be used by other features.
-            // Disconnecting nodes can be tricky if the audio element is persistent.
-        }
+            try {
+                source.disconnect(lpf);
+                lpf.disconnect(hpf);
+                hpf.disconnect();
+            } catch (e) {}
+        };
     }, [audioRef]);
     
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = parseFloat(e.target.value);
         setFilterValue(value);
         
-        const context = audioContextRef.current;
+        const context = getSharedAudioContext();
         const lpf = lpfRef.current;
         const hpf = hpfRef.current;
         if (!context || !lpf || !hpf) return;

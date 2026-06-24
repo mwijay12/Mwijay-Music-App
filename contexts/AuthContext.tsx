@@ -119,13 +119,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const { getProfile } = await import('../components/db.ts');
           const localProfile = await getProfile();
           if (localProfile) {
+            if (localStorage.getItem('mwijay_onboarded') === 'true') {
+              localProfile.onboarded = true;
+            }
             setProfile(localProfile);
           } else {
-            setProfile(defaultProfile);
+            const guestProfile = { ...defaultProfile };
+            if (localStorage.getItem('mwijay_onboarded') === 'true') {
+              guestProfile.onboarded = true;
+            }
+            setProfile(guestProfile);
           }
         } catch (e) {
           console.warn('Local profile read failed, falling back to default:', e);
-          setProfile(defaultProfile);
+          const guestProfile = { ...defaultProfile };
+          if (localStorage.getItem('mwijay_onboarded') === 'true') {
+            guestProfile.onboarded = true;
+          }
+          setProfile(guestProfile);
         }
 
         // Unblock the main app loading screen immediately!
@@ -161,7 +172,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         // Automatically default to guest mode so they are never forced to log in on launch!
         setIsGuest(true);
-        setProfile(defaultProfile);
+        
+        try {
+          const { getProfile } = await import('../components/db.ts');
+          const localProfile = await getProfile();
+          if (localProfile) {
+            if (localStorage.getItem('mwijay_onboarded') === 'true') {
+              localProfile.onboarded = true;
+            }
+            setProfile(localProfile);
+          } else {
+            const guestProfile = { ...defaultProfile };
+            if (localStorage.getItem('mwijay_onboarded') === 'true') {
+              guestProfile.onboarded = true;
+            }
+            setProfile(guestProfile);
+          }
+        } catch (e) {
+          console.warn('Local profile read failed for guest, falling back to default:', e);
+          const guestProfile = { ...defaultProfile };
+          if (localStorage.getItem('mwijay_onboarded') === 'true') {
+            guestProfile.onboarded = true;
+          }
+          setProfile(guestProfile);
+        }
         setLoading(false);
       }
     });

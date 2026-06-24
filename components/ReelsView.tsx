@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { RefreshCw, FolderOpen, VideoOff, Search, Compass, Film, Loader2 } from 'lucide-react';
+import { RefreshCw, FolderOpen, VideoOff, Search, Compass, Film, Loader2, ChevronDown, ChevronUp, Shuffle } from 'lucide-react';
 import type { Video, ReelPlaylist, ProfileData, Song } from '../types.ts';
 import { addOrUpdateVideos } from './db.ts';
 import VideoPlayer from './VideoPlayer.tsx';
@@ -51,8 +51,50 @@ const ReelsView: React.FC<ReelsViewProps> = ({
     const [activeTab, setActiveTab] = useState<'local' | 'online'>(() =>
         videos.length > 0 ? 'local' : 'online'
     );
+    const [onlineVideos, setOnlineVideos] = useState<Video[]>([]);
+    const [onlineSearchQuery, setOnlineSearchQuery] = useState('');
+    const [isSearchingOnline, setIsSearchingOnline] = useState(false);
+    const [onlineError, setOnlineError] = useState(false);
+    const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+    const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
     const headerHideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const [preparedVideos, setPreparedVideos] = useState<Video[]>([]);
+
+    const shuffleAndPrepare = useCallback((videoList: Video[]) => {
+        if (!videoList || videoList.length === 0) {
+            setPreparedVideos([]);
+            return;
+        }
+
+        // Separate true reels (portrait) from other formats
+        const reels = videoList.filter(v => v.isReel === true);
+        const others = videoList.filter(v => v.isReel !== true);
+
+        // Fisher-Yates shuffle
+        const shuffle = <T,>(arr: T[]): T[] => {
+            const copy = [...arr];
+            for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        };
+
+        const shuffledReels = shuffle(reels);
+        const shuffledOthers = shuffle(others);
+
+        setPreparedVideos([...shuffledReels, ...shuffledOthers]);
+        setCurrentVideoIndex(0);
+    }, []);
+
+    // Reprepare videos whenever activeTab, videos pool or onlineVideos pool updates
+    useEffect(() => {
+        const sourceList = activeTab === 'local' ? videos : onlineVideos;
+        shuffleAndPrepare(sourceList);
+    }, [activeTab, videos, onlineVideos, shuffleAndPrepare]);
 
     const showHeaderBriefly = useCallback(() => {
         setIsHeaderVisible(true);
@@ -67,12 +109,6 @@ const ReelsView: React.FC<ReelsViewProps> = ({
         headerHideTimeout.current = setTimeout(() => setIsHeaderVisible(false), 4000);
         return () => { if (headerHideTimeout.current) clearTimeout(headerHideTimeout.current); };
     }, []);
-
-    const [onlineVideos, setOnlineVideos] = useState<Video[]>([]);
-    const [onlineSearchQuery, setOnlineSearchQuery] = useState('');
-    const [isSearchingOnline, setIsSearchingOnline] = useState(false);
-    const [onlineError, setOnlineError] = useState(false);
-    const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const reelsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -130,7 +166,7 @@ const ReelsView: React.FC<ReelsViewProps> = ({
         }).catch(() => showNotification('Error saving reel update.', 'error'));
     }, [activeTab, onUpdate, showNotification]);
 
-    const activeVideoPool = activeTab === 'local' ? videos : onlineVideos;
+    const activeVideoPool = preparedVideos;
 
     const handlePlaybackComplete = () => {
         const container = reelsContainerRef.current;
@@ -203,11 +239,18 @@ const ReelsView: React.FC<ReelsViewProps> = ({
 
                     {/* Title + Actions Row */}
                     <div className="flex justify-between items-center">
-                        <h1 className="font-black text-lg ml-1 uppercase tracking-widest text-[var(--primary-accent)] flex items-center gap-2">
-                            <Film size={18} />
+                        <h1 className="font-normal text-[9px] ml-1 tracking-widest text-[var(--primary-accent)] flex items-center gap-1 uppercase opacity-75">
+                            <Film size={10} />
                             <span>Mwijay Reels</span>
                         </h1>
                         <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => shuffleAndPrepare(activeTab === 'local' ? videos : onlineVideos)}
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all cursor-pointer"
+                                title="Reshuffle Feed"
+                            >
+                                <Shuffle size={14} className="text-white" />
+                            </button>
                             {activeTab === 'online' && (
                                 <button
                                     onClick={() => loadOnlineVideos(onlineSearchQuery)}
@@ -234,29 +277,38 @@ const ReelsView: React.FC<ReelsViewProps> = ({
                             >
                                 <FolderOpen size={14} className="text-black" />
                             </button>
+                            <button
+                                onClick={() => setIsHeaderCollapsed(prev => !prev)}
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all cursor-pointer"
+                                title={isHeaderCollapsed ? "Expand Navigation" : "Collapse Navigation"}
+                            >
+                                {isHeaderCollapsed ? <ChevronDown size={14} className="text-white" /> : <ChevronUp size={14} className="text-white" />}
+                            </button>
                         </div>
                     </div>
 
                     {/* Tab Bar */}
-                    <div className="flex bg-black/40 p-1 rounded-full border border-white/5 w-full">
-                        <button
-                            onClick={() => setActiveTab('local')}
-                            className={`flex-1 py-1.5 text-xs font-black uppercase tracking-wider rounded-full transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'local' ? 'bg-[var(--primary-accent)] text-black' : 'text-neutral-400 hover:text-white'}`}
-                        >
-                            <FolderOpen size={12} />
-                            <span>Local ({videos.length})</span>
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('online')}
-                            className={`flex-1 py-1.5 text-xs font-black uppercase tracking-wider rounded-full transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'online' ? 'bg-[var(--primary-accent)] text-black' : 'text-neutral-400 hover:text-white'}`}
-                        >
-                            <Compass size={12} />
-                            <span>Surf Online</span>
-                        </button>
-                    </div>
+                    {!isHeaderCollapsed && (
+                        <div className="flex bg-black/40 p-1 rounded-full border border-white/5 w-full">
+                            <button
+                                onClick={() => setActiveTab('local')}
+                                className={`flex-1 py-1.5 text-xs font-black uppercase tracking-wider rounded-full transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'local' ? 'bg-[var(--primary-accent)] text-black' : 'text-neutral-400 hover:text-white'}`}
+                            >
+                                <FolderOpen size={12} />
+                                <span>Local ({videos.length})</span>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('online')}
+                                className={`flex-1 py-1.5 text-xs font-black uppercase tracking-wider rounded-full transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'online' ? 'bg-[var(--primary-accent)] text-black' : 'text-neutral-400 hover:text-white'}`}
+                            >
+                                <Compass size={12} />
+                                <span>Surf Online</span>
+                            </button>
+                        </div>
+                    )}
 
                     {/* Online Search */}
-                    {activeTab === 'online' && (
+                    {!isHeaderCollapsed && activeTab === 'online' && (
                         <div className="relative w-full">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={13} />
                             <input
@@ -280,29 +332,39 @@ const ReelsView: React.FC<ReelsViewProps> = ({
                     ref={reelsContainerRef}
                     className="h-full w-full overflow-y-auto snap-y snap-mandatory flex-1"
                 >
-                    {activeVideoPool.map((video) => (
-                        <div
-                            key={video.id}
-                            id={`reel-${video.id}`}
-                            className="h-full w-full snap-start relative flex items-center justify-center bg-black"
-                            onClick={handleVideoContainerClick}
-                        >
-                            <VideoPlayer
-                                video={video}
-                                onUpdate={handleUpdateSingleVideo}
-                                onReelActiveChange={onReelActiveChange}
-                                onPlayAsAudio={onPlayReelAsAudio}
-                                nowPlaying={nowPlaying}
-                                profile={profile}
-                                onUpdateProfile={onUpdateProfile}
-                                onPlaybackComplete={handlePlaybackComplete}
-                                onOpenAssistant={onOpenAssistant}
-                                isAssistantOnline={isAssistantOnline}
-                                showNotification={showNotification}
-                                onToggleReelsUiVisibility={onToggleReelsUiVisibility}
-                            />
-                        </div>
-                    ))}
+                    {activeVideoPool.map((video, index) => {
+                        const isNear = Math.abs(index - currentVideoIndex) <= 1;
+                        return (
+                            <div
+                                key={video.id}
+                                id={`reel-${video.id}`}
+                                className="h-full w-full snap-start relative flex items-center justify-center bg-black"
+                                onClick={handleVideoContainerClick}
+                            >
+                                {isNear ? (
+                                    <VideoPlayer
+                                        video={video}
+                                        onUpdate={handleUpdateSingleVideo}
+                                        onReelActiveChange={onReelActiveChange}
+                                        onPlayAsAudio={onPlayReelAsAudio}
+                                        nowPlaying={nowPlaying}
+                                        profile={profile}
+                                        onUpdateProfile={onUpdateProfile}
+                                        onPlaybackComplete={handlePlaybackComplete}
+                                        onOpenAssistant={onOpenAssistant}
+                                        isAssistantOnline={isAssistantOnline}
+                                        showNotification={showNotification}
+                                        onToggleReelsUiVisibility={onToggleReelsUiVisibility}
+                                    />
+                                ) : (
+                                    <div className="h-full w-full flex flex-col items-center justify-center text-white/20 gap-3">
+                                        <Loader2 className="animate-spin text-[var(--primary-accent)]" size={24} />
+                                        <span className="text-[10px] uppercase tracking-wider font-bold">Spinning Reels...</span>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             ) : (
                 <div className="h-full w-full flex flex-col items-center justify-center text-center text-white p-8 bg-black gap-4">

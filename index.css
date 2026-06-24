@@ -254,20 +254,26 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
   z-index: 120;
   background-color: var(--bg-color) !important;
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  padding: 0.4rem 1.5rem 0.2rem 1.5rem;
+  padding-top: calc(env(safe-area-inset-top, 28px) + 0.8rem) !important;
+  padding-bottom: 0.4rem;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
   min-height: 2.5rem;
   border-bottom: 1px solid transparent;
 }
 
 .collapsible-header-container.collapsed {
-  padding-top: 0.3rem;
-  padding-bottom: 0.3rem;
+  padding-top: calc(env(safe-area-inset-top, 28px) + 0.5rem) !important;
+  padding-bottom: 0.4rem;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
   background-color: var(--bg-color) !important;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border-bottom-color: var(--surface-border-color);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15);
 }
+
 
 .header-big-title {
   font-family: 'Cinzel Decorative', cursive;
@@ -305,6 +311,7 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
 .collapsed .header-small-title {
   opacity: 1;
   transform: translate(-50%, -50%);
+  top: calc(50% + 14px);
   pointer-events: auto;
 }
 
@@ -316,6 +323,12 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
   display: flex;
   gap: 0.75rem;
   z-index: 130;
+  transition: top 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.collapsed .header-actions-right,
+.collapsed .header-actions-left {
+  top: calc(50% + 14px);
 }
 
 .scroll-content-with-header {
@@ -348,7 +361,7 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
 .glass-nav {
   position: relative;
   z-index: 1;
-  background: color-mix(in srgb, var(--surface-color) 60%, transparent);
+  background: color-mix(in srgb, var(--surface-color) 88%, transparent);
   backdrop-filter: blur(25px) saturate(1.8);
   -webkit-backdrop-filter: blur(25px) saturate(1.8);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -356,7 +369,7 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
 }
 
 .liquid-glass-pane {
-  background: color-mix(in srgb, var(--surface-color) 60%, transparent);
+  background: color-mix(in srgb, var(--surface-color) 88%, transparent);
   backdrop-filter: blur(25px) saturate(1.5);
   -webkit-backdrop-filter: blur(25px) saturate(1.5);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -419,6 +432,22 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
 }
 .themed-slider:active::-webkit-slider-thumb {
   transform: scale(1.2);
+}
+
+/* --- Mobile Thicker Progress Bar Line Override --- */
+@media (max-width: 768px) {
+  .themed-slider {
+    height: 12px !important;
+  }
+  .themed-slider::-webkit-slider-thumb {
+    width: 20px !important;
+    height: 20px !important;
+    margin-top: 0px !important;
+  }
+  .themed-slider::-moz-range-thumb {
+    width: 20px !important;
+    height: 20px !important;
+  }
 }
 
 /* Aurora Canvas */
@@ -521,12 +550,19 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
     -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
 }
 
-/* New CSS for Continuous Scroll - Slower speed */
+/* New CSS for Continuous Scroll - Slower speed + Touch-Interruptible */
 .animate-scroll {
     animation: scroll-x 80s linear infinite;
+    will-change: transform;
 }
+/* Pause on hover (desktop) */
+.group\/moods:hover .animate-scroll,
 .group:hover .group-hover\:paused {
     animation-play-state: paused;
+}
+/* Pause on touch (mobile) — JS-driven class */
+.animate-scroll.is-touching {
+    animation-play-state: paused !important;
 }
 @keyframes scroll-x {
     0% { transform: translateX(0); }
@@ -859,7 +895,7 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
     background: conic-gradient(transparent 60%, #ff006e, #ff4d6d, #ff8fa3, transparent 90%);
 }
 .card-favorites .card-body {
-    background: linear-gradient(145deg, rgba(255, 0, 80, 0.15), rgba(20, 10, 15, 0.95) 60%);
+    background: linear-gradient(145deg, rgba(255, 0, 80, 0.55), rgba(20, 10, 15, 0.98) 60%);
     box-shadow: 0 40px 80px -20px rgba(255, 0, 80, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -867,7 +903,7 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
     background: conic-gradient(transparent 60%, #8338ec, #a855f7, #c084fc, transparent 90%);
 }
 .card-listened .card-body {
-    background: linear-gradient(145deg, rgba(131, 56, 236, 0.15), rgba(15, 10, 25, 0.95) 60%);
+    background: linear-gradient(145deg, rgba(131, 56, 236, 0.55), rgba(15, 10, 25, 0.98) 60%);
     box-shadow: 0 40px 80px -20px rgba(131, 56, 236, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -875,7 +911,7 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
     background: conic-gradient(transparent 60%, #00e5ff, #06b6d4, #67e8f9, transparent 90%);
 }
 .card-added .card-body {
-    background: linear-gradient(145deg, rgba(0, 229, 255, 0.12), rgba(10, 15, 20, 0.95) 60%);
+    background: linear-gradient(145deg, rgba(0, 229, 255, 0.55), rgba(10, 15, 20, 0.98) 60%);
     box-shadow: 0 40px 80px -20px rgba(0, 229, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -883,7 +919,7 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
     background: conic-gradient(transparent 60%, #f97316, #fb923c, #fed7aa, transparent 90%);
 }
 .card-played .card-body {
-    background: linear-gradient(145deg, rgba(249, 115, 22, 0.12), rgba(20, 12, 8, 0.95) 60%);
+    background: linear-gradient(145deg, rgba(249, 115, 22, 0.55), rgba(20, 12, 8, 0.98) 60%);
     box-shadow: 0 40px 80px -20px rgba(249, 115, 22, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -891,7 +927,7 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
     background: conic-gradient(transparent 60%, #10b981, #34d399, #6ee7b7, transparent 90%);
 }
 .card-create .card-body {
-    background: linear-gradient(145deg, rgba(16, 185, 129, 0.12), rgba(8, 15, 12, 0.95) 60%);
+    background: linear-gradient(145deg, rgba(16, 185, 129, 0.55), rgba(8, 15, 12, 0.98) 60%);
     box-shadow: 0 40px 80px -20px rgba(16, 185, 129, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -899,7 +935,7 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
     background: conic-gradient(transparent 50%, #f43f5e, #e11d48, #fb7185, #fbbf24, transparent 85%);
 }
 .card-game .card-body {
-    background: linear-gradient(145deg, rgba(244, 63, 94, 0.1), rgba(251, 191, 36, 0.05), rgba(15, 10, 15, 0.95) 60%);
+    background: linear-gradient(145deg, rgba(244, 63, 94, 0.55), rgba(251, 191, 36, 0.25), rgba(15, 10, 15, 0.98) 60%);
     box-shadow: 0 40px 80px -20px rgba(244, 63, 94, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -908,7 +944,7 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
     background: conic-gradient(transparent 60%, var(--primary-accent), var(--secondary-accent-start), var(--secondary-accent-end), transparent 90%);
 }
 .card-custom-playlist .card-body {
-    background: linear-gradient(145deg, color-mix(in srgb, var(--primary-accent) 15%, transparent), rgba(10, 10, 15, 0.95) 60%);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--primary-accent) 55%, transparent), rgba(10, 10, 15, 0.98) 60%);
     box-shadow: 0 40px 80px -20px color-mix(in srgb, var(--primary-accent) 15%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -1060,6 +1096,22 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
 .card-create .card-btn:hover { box-shadow: 0 12px 32px rgba(16, 185, 129, 0.4); }
 .card-game .card-btn:hover { box-shadow: 0 12px 32px rgba(244, 63, 94, 0.4); }
 .card-custom-playlist .card-btn:hover { box-shadow: 0 12px 32px color-mix(in srgb, var(--primary-accent) 45%, transparent); }
+
+/* --- Mobile Game Card Sizing Correction --- */
+@media (max-width: 768px) {
+    .card-game .card-desc {
+        display: none !important;
+    }
+    .card-game .achievements {
+        display: none !important;
+    }
+    .card-game .xp-section {
+        margin-bottom: 6px !important;
+    }
+    .card-game .card-stats {
+        margin-bottom: 6px !important;
+    }
+}
 
 /* Playlists Decoratives & Lists */
 .mini-tracks {
@@ -1395,5 +1447,44 @@ input:checked + .theme-slider .moon { opacity: 1; transform: scale(1) rotate(0de
 
 .spinning-player {
   animation: spin-vinyl 25s linear infinite !important;
+}
+
+/* --- MINI VISUALIZER BOUNCING SPECTRAL BARS --- */
+.mini-visualizer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+}
+
+.mini-visualizer-bar {
+  width: 3px;
+  height: 100%;
+  background-color: var(--primary-accent);
+  border-radius: 9999px;
+  transform-origin: bottom;
+  animation: mini-bounce 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes mini-bounce {
+  from {
+    transform: scaleY(0.1);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.mini-visualizer-bar:nth-child(2) {
+  animation-delay: 0.15s;
+  animation-duration: 0.4s;
+}
+
+.mini-visualizer-bar:nth-child(3) {
+  animation-delay: 0.3s;
+  animation-duration: 0.6s;
 }
 

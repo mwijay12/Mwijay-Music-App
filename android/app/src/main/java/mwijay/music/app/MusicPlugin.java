@@ -62,6 +62,8 @@ public class MusicPlugin extends Plugin {
         intent.putExtra(MusicService.EXTRA_ARTWORK,    call.getString("artwork",""));
         intent.putExtra(MusicService.EXTRA_IS_PLAYING, call.getBoolean("isPlaying", false));
         intent.putExtra(MusicService.EXTRA_IS_LIKED,   call.getBoolean("isLiked",   false));
+        intent.putExtra(MusicService.EXTRA_TYPE,       call.getString("type", "music"));
+        intent.putExtra(MusicService.EXTRA_IS_LIVE,    call.getBoolean("isLive", false));
         
         Long duration = call.getLong("duration");
         intent.putExtra(MusicService.EXTRA_DURATION,   duration != null ? duration : 0L);

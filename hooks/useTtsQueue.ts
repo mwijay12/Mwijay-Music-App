@@ -1,8 +1,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
-import { Capacitor } from '@capacitor/core';
-import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { GEMINI_KEYS } from '../components/constants.ts';
 import type { ProfileData } from '../types';
 import { decode } from '../utils/helpers.ts';
@@ -18,6 +16,18 @@ interface UseTtsQueueProps {
     profile: ProfileData | null;
 }
 
+// ── MODULE-LEVEL TTS CLEANUP ─────────────────────────────────────────
+function cancelAllTts() {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+    }
+}
+
+if (typeof window !== 'undefined') {
+    cancelAllTts();
+}
+
+// ── HOOK ─────────────────────────────────────────────────────────────
 export const useTtsQueue = ({ profile }: UseTtsQueueProps) => {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
@@ -25,8 +35,8 @@ export const useTtsQueue = ({ profile }: UseTtsQueueProps) => {
     
     const ttsQueue = useRef<TtsQueueItem[]>([]);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const processingRef = useRef(false);
     
-    // Initialize Audio element
     useEffect(() => {
         if (typeof window !== 'undefined' && !audioRef.current) {
             audioRef.current = new Audio();
@@ -34,9 +44,10 @@ export const useTtsQueue = ({ profile }: UseTtsQueueProps) => {
     }, []);
 
     const processQueue = useCallback(async () => {
-        if (isSpeaking || isPaused || ttsQueue.current.length === 0) {
+        if (isSpeaking || isPaused || ttsQueue.current.length === 0 || processingRef.current) {
             return;
         }
+        processingRef.current = true;
 
         const item = ttsQueue.current.shift();
         if (!item || !profile) return;
@@ -48,11 +59,11 @@ export const useTtsQueue = ({ profile }: UseTtsQueueProps) => {
             setIsSpeaking(false);
             setIsPaused(false);
             setCurrentType(null);
+            processingRef.current = false;
             if (audioRef.current) {
                 URL.revokeObjectURL(audioRef.current.src);
                 audioRef.current.src = '';
             }
-            // Process next item if exists
             if (ttsQueue.current.length > 0) {
                 processQueue();
             }
@@ -64,44 +75,6 @@ export const useTtsQueue = ({ profile }: UseTtsQueueProps) => {
             ...GEMINI_KEYS
         ].filter(Boolean))) as string[];
 
-        const fallbackToBrowserTts = async () => {
-            if (Capacitor.isNativePlatform()) {
-                try {
-                    await TextToSpeech.speak({
-                        text: item.text,
-                        lang: 'en-US',
-                        rate: 1.0,
-                        pitch: 1.0,
-                        volume: 1.0,
-                        category: 'ambient'
-                    });
-                    cleanup();
-                } catch (e) {
-                    console.error("Capacitor Native speech synthesis error, trying standard browser API:", e);
-                    // Fall through to browser Web Speech API as last resort
-                    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-                        const utterance = new SpeechSynthesisUtterance(item.text);
-                        utterance.onend = cleanup;
-                        utterance.onerror = () => cleanup();
-                        window.speechSynthesis.speak(utterance);
-                    } else {
-                        cleanup();
-                    }
-                }
-            } else if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance(item.text);
-                utterance.onend = cleanup;
-                utterance.onerror = (e) => {
-                    console.error("Browser speech synthesis error:", e);
-                    cleanup();
-                };
-                window.speechSynthesis.speak(utterance);
-            } else {
-                cleanup();
-            }
-        };
-
-        // Use Google TTS if online and key available
         if (navigator.onLine && uniqueKeys.length > 0) {
             const generateTTS = async () => {
                 let lastError = null;
@@ -115,13 +88,13 @@ export const useTtsQueue = ({ profile }: UseTtsQueueProps) => {
                             const femaleVoices = ['Kore', 'Laomedeia', 'Callirrhoe', 'Autonoe', 'Zephyr'];
                             const maleVoices = ['Puck', 'Charon', 'Fenrir', 'Zubenelgenubi', 'Orus', 'Achernar'];
                             
-                            let voiceName = 'Zephyr'; // Default
+                            let voiceName = 'Zephyr';
                             if (femaleVoices.includes(voice) || maleVoices.includes(voice)) {
                                 voiceName = voice;
                             }
 
                             const response = await ai.models.generateContent({
-                                model: "gemini-2.5-flash",
+                                model: "gemini-2.5-flash-preview-tts",
                                 contents: [{ parts: [{ text: item.text }] }],
                                 config: {
                                     responseModalities: [Modality.AUDIO],
@@ -152,31 +125,27 @@ export const useTtsQueue = ({ profile }: UseTtsQueueProps) => {
                 if (base64Audio && audioRef.current) {
                     const bytes = decode(base64Audio);
                     
-                    // Simple WAV header construction for 24kHz mono (standard for Gemini TTS)
                     const wavHeader = new ArrayBuffer(44);
                     const view = new DataView(wavHeader);
                     const sampleRate = 24000;
                     const numChannels = 1;
-                    const byteRate = sampleRate * numChannels * 2; // 16-bit
+                    const byteRate = sampleRate * numChannels * 2;
                     const blockAlign = numChannels * 2;
                     const dataSize = bytes.length;
 
-                    // RIFF chunk descriptor
-                    view.setUint32(0, 0x52494646, false); // "RIFF"
-                    view.setUint32(4, 36 + dataSize, true); // ChunkSize
-                    view.setUint32(8, 0x57415645, false); // "WAVE"
-                    // fmt sub-chunk
-                    view.setUint32(12, 0x666d7420, false); // "fmt "
-                    view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
-                    view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
-                    view.setUint16(22, numChannels, true); // NumChannels
-                    view.setUint32(24, sampleRate, true); // SampleRate
-                    view.setUint32(28, byteRate, true); // ByteRate
-                    view.setUint16(32, blockAlign, true); // BlockAlign
-                    view.setUint16(34, 16, true); // BitsPerSample
-                    // data sub-chunk
-                    view.setUint32(36, 0x64617461, false); // "data"
-                    view.setUint32(40, dataSize, true); // Subchunk2Size
+                    view.setUint32(0, 0x52494646, false);
+                    view.setUint32(4, 36 + dataSize, true);
+                    view.setUint32(8, 0x57415645, false);
+                    view.setUint32(12, 0x666d7420, false);
+                    view.setUint32(16, 16, true);
+                    view.setUint16(20, 1, true);
+                    view.setUint16(22, numChannels, true);
+                    view.setUint32(24, sampleRate, true);
+                    view.setUint32(28, byteRate, true);
+                    view.setUint16(32, blockAlign, true);
+                    view.setUint16(34, 16, true);
+                    view.setUint32(36, 0x64617461, false);
+                    view.setUint32(40, dataSize, true);
 
                     const wavBlob = new Blob([wavHeader, bytes as unknown as BlobPart], { type: 'audio/wav' });
                     const url = URL.createObjectURL(wavBlob);
@@ -184,23 +153,24 @@ export const useTtsQueue = ({ profile }: UseTtsQueueProps) => {
                     audioRef.current.src = url;
                     audioRef.current.onended = cleanup;
                     audioRef.current.onerror = (e) => {
-                        console.error("Audio playback error, falling back to browser TTS", e);
-                        fallbackToBrowserTts();
+                        console.warn('[TTS] Audio playback error, skipping:', e);
+                        cleanup();
                     };
                     audioRef.current.play().catch(e => {
-                        console.error("Audio play failed, falling back to browser TTS", e);
-                        fallbackToBrowserTts();
+                        console.warn('[TTS] Audio play failed, skipping:', e);
+                        cleanup();
                     });
                 } else {
-                    console.warn("No base64Audio received from Gemini, falling back to browser TTS");
-                    fallbackToBrowserTts();
+                    console.warn("[TTS] No base64Audio from Gemini, skipping");
+                    cleanup();
                 }
             } catch (error) {
-                console.error("TTS generation failed after retries, falling back to browser TTS:", String(error));
-                fallbackToBrowserTts();
+                console.warn('[TTS] Generation failed, skipping audio:', error);
+                cleanup();
             }
         } else {
-            fallbackToBrowserTts();
+            console.warn('[TTS] No network or API key, skipping audio');
+            cleanup();
         }
     }, [isSpeaking, isPaused, profile]);
 
@@ -211,11 +181,6 @@ export const useTtsQueue = ({ profile }: UseTtsQueueProps) => {
     }, [isSpeaking, isPaused, processQueue]);
 
     const queueSpeech = useCallback((text: string, type: TtsType = 'response') => {
-        if (Capacitor.isNativePlatform()) {
-            TextToSpeech.stop().catch(console.error);
-        } else if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-        }
         ttsQueue.current.push({ text, type });
         if (!isSpeaking && !isPaused) {
             processQueue();
@@ -236,19 +201,24 @@ export const useTtsQueue = ({ profile }: UseTtsQueueProps) => {
         }
     }, [isPaused]);
 
+    useEffect(() => {
+        return () => {
+            cancelAllTts();
+            processingRef.current = false;
+        };
+    }, []);
+
     const stop = useCallback(() => {
-        if (Capacitor.isNativePlatform()) {
-            TextToSpeech.stop().catch(console.error);
-        }
+        cancelAllTts();
         if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
-            // Trigger cleanup manually as 'ended' event won't fire on pause+seek
-            setIsSpeaking(false);
-            setIsPaused(false);
-            setCurrentType(null);
-            ttsQueue.current = []; // Clear queue
         }
+        setIsSpeaking(false);
+        setIsPaused(false);
+        setCurrentType(null);
+        processingRef.current = false;
+        ttsQueue.current = [];
     }, []);
 
     return { queueSpeech, isSpeaking, isPaused, currentType, pause, resume, stop };

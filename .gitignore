@@ -44,3 +44,10 @@ grep_output.txt
 # Vite temporary timestamp files
 vite.config.ts.timestamp-*
 
+# Electron build outputs
+dist-electron/
+release/
+
+# Electron cache
+.electron/
+

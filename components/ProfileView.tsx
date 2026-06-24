@@ -1,14 +1,15 @@
 
-import React, { useState, useMemo, useRef } from 'react';
-import { ArrowLeft, Smile, Camera, Pencil, Headphones, Play, Music, Settings, LogOut, Loader2, Award, Flame, Snowflake, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { ArrowLeft, Smile, Camera, Pencil, Headphones, Play, Music, Settings, LogOut, Loader2, Award, Flame, Snowflake, ChevronDown, ChevronUp, Sparkles, Film, AlertTriangle, CheckCircle, X, Upload } from 'lucide-react';
 import type { ProfileData } from '../types.ts';
 import { fonts, achievements, nameplateAnimations } from './constants.ts';
 import { useInterruptibleScroll } from '../hooks/useInterruptibleScroll.ts';
 import { emojiToDataUrl } from '../utils/helpers.ts';
 import BubbleButton from './BubbleButton.tsx';
-import { uploadToCloudinary } from '../services/cloudinaryService.ts';
-import { auth, logout, signInWithGoogle } from '../services/firebase.ts';
-import { motion } from 'framer-motion';
+import { uploadToR2 } from '../services/r2Service.ts';
+import { auth, logout, signInWithGoogle, db } from '../services/firebase.ts';
+import { collection, addDoc, getDocs, query, where, orderBy, serverTimestamp } from 'firebase/firestore';
+import { motion, AnimatePresence } from 'framer-motion';
 import { getXpForLevel, getTitleForLevel, getLevelRewards } from '../utils/gamification.ts';
 
 const SectionCard: React.FC<{ title: string; subtitle?: string; children: React.ReactNode; className?: string }> = ({ title, subtitle, children, className = '' }) => (
@@ -104,15 +105,95 @@ interface ProfileViewProps {
     onNavigate: (view: string) => void;
     onOpenCameraModal: () => void;
     onOpenEmojiPicker: () => void;
+    showNotification: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
-const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile, onOpenAppearance, onBack, onNavigate, onOpenCameraModal, onOpenEmojiPicker }) => {
+const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile, onOpenAppearance, onBack, onNavigate, onOpenCameraModal, onOpenEmojiPicker, showNotification }) => {
     const [isAchievementsVisible, setAchievementsVisible] = useState(false);
     const [isRewardsExpanded, setRewardsExpanded] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isAuthenticating, setIsAuthenticating] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Reel upload requests state
+    const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+    const [reelRequests, setReelRequests] = useState<any[]>([]);
+    const [loadingRequests, setLoadingRequests] = useState(false);
+    const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+    const [requestForm, setRequestForm] = useState({ title: '', uploader: '', description: '' });
+    const [requestVideoFile, setRequestVideoFile] = useState<File | null>(null);
+    const [requestCoverFile, setRequestCoverFile] = useState<File | null>(null);
+    const [requestCoverPreview, setRequestCoverPreview] = useState<string | null>(null);
+    const requestVideoInputRef = useRef<HTMLInputElement>(null);
+    const requestCoverInputRef = useRef<HTMLInputElement>(null);
+
+    const loadUserRequests = async () => {
+        if (!auth.currentUser?.email) return;
+        setLoadingRequests(true);
+        try {
+            const q = query(
+                collection(db, 'reel_requests'),
+                where('requestedBy', '==', auth.currentUser.email),
+                orderBy('createdAt', 'desc')
+            );
+            const snap = await getDocs(q);
+            setReelRequests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        } catch (e) {
+            console.warn('[ProfileView] Failed to fetch reel requests:', e);
+        } finally {
+            setLoadingRequests(false);
+        }
+    };
+
+    useEffect(() => {
+        loadUserRequests();
+    }, [profile.name]);
+
+    const handleAddReelRequest = async () => {
+        if (!requestForm.title || !requestForm.uploader || !requestVideoFile) {
+            showNotification('Reel Title, Creator/Uploader and Video File are required!', 'error');
+            return;
+        }
+        setIsSubmittingRequest(true);
+        try {
+            showNotification('Uploading video to Cloudinary...', 'info');
+            const videoResult = await uploadToR2(requestVideoFile);
+            let coverUrl = '';
+            if (requestCoverFile) {
+                showNotification('Uploading thumbnail...', 'info');
+                const coverResult = await uploadToR2(requestCoverFile);
+                coverUrl = coverResult.secure_url;
+            }
+
+            const requestDoc = {
+                title: requestForm.title,
+                uploader: requestForm.uploader,
+                description: requestForm.description,
+                url: videoResult.secure_url,
+                thumbnailUrl: coverUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(requestForm.title)}&background=f43f5e&color=fff&size=400`,
+                status: 'pending',
+                requestedBy: auth.currentUser?.email || 'anonymous',
+                createdAt: serverTimestamp(),
+            };
+
+            await addDoc(collection(db, 'reel_requests'), requestDoc);
+            showNotification('Reel upload request submitted successfully! 🎬', 'success');
+            
+            // Reset form
+            setRequestForm({ title: '', uploader: '', description: '' });
+            setRequestVideoFile(null);
+            setRequestCoverFile(null);
+            setRequestCoverPreview(null);
+            setIsRequestModalOpen(false);
+            loadUserRequests();
+        } catch (err) {
+            console.error('Reel request submission failed:', err);
+            showNotification('Failed to submit request. Check connection.', 'error');
+        } finally {
+            setIsSubmittingRequest(false);
+        }
+    };
 
     const handleGoogleSignIn = async () => {
         try {
@@ -186,7 +267,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile, onO
 
         try {
             setIsUploading(true);
-            const result = await uploadToCloudinary(file);
+            const result = await uploadToR2(file);
             onUpdateProfile(p => ({ ...p, avatarUrl: result.secure_url }));
         } catch (error) {
             console.error("Cloudinary upload failed", error);
@@ -244,7 +325,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile, onO
                                         {profile.avatarUrl}
                                     </div>
                                 ) : (
-                                    <img src={profile.avatarUrl} alt="User Avatar" className="w-24 h-24 rounded-full object-cover border-4 border-[var(--surface-border-color)]" />
+                                    <img src={profile.avatarUrl} referrerPolicy="no-referrer" alt="User Avatar" className="w-24 h-24 rounded-full object-cover border-4 border-[var(--surface-border-color)]" />
                                 )}
                                 {isUploading && (
                                     <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center">
@@ -469,10 +550,63 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile, onO
                             }
                         </div>
                     </div>
-                    <div className="flex justify-center">
+                            <div className="flex justify-center">
                         <BubbleButton onClick={onOpenAppearance} className="small">
                             Customize Appearance
                         </BubbleButton>
+                    </div>
+                </SectionCard>
+
+                <SectionCard title="My Reel Requests" subtitle="Submit or track requested reel uploads. Admin will verify before going live.">
+                    <div className="space-y-4">
+                        {auth.currentUser ? (
+                            <>
+                                <div className="flex justify-center">
+                                    <BubbleButton onClick={() => setIsRequestModalOpen(true)} className="small !bg-[var(--primary-accent)] !text-black">
+                                        <Film size={14} className="mr-2 inline" /> Request Reel Upload
+                                    </BubbleButton>
+                                </div>
+                                {loadingRequests ? (
+                                    <div className="flex justify-center py-4"><Loader2 className="animate-spin text-neutral-400" size={20} /></div>
+                                ) : reelRequests.length > 0 ? (
+                                    <div className="space-y-3 max-h-64 overflow-y-auto pr-1 scroll-container">
+                                        {reelRequests.map((req) => (
+                                            <div key={req.id} className="p-3 bg-white/5 border border-white/5 rounded-2xl flex flex-col gap-2">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <h4 className="font-bold text-sm text-white truncate">{req.title}</h4>
+                                                        <p className="text-xs text-neutral-400 truncate">by {req.uploader}</p>
+                                                    </div>
+                                                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider ${
+                                                        req.status === 'approved' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                                        req.status === 'rejected' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                                        'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                                    }`}>
+                                                        {req.status}
+                                                    </span>
+                                                </div>
+                                                {req.description && (
+                                                    <p className="text-xs text-neutral-500 italic line-clamp-1">{req.description}</p>
+                                                )}
+                                                {req.status === 'rejected' && req.adminComment && (
+                                                    <div className="mt-1 p-2 bg-red-950/20 border border-red-500/20 rounded-xl flex gap-2 items-start text-xs text-red-300">
+                                                        <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                                                        <div>
+                                                            <strong className="block font-extrabold text-[10px] uppercase text-red-400">Admin Feedback:</strong>
+                                                            <span>{req.adminComment}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-neutral-500 text-center py-4">You have not submitted any reel requests yet.</p>
+                                )}
+                            </>
+                        ) : (
+                            <p className="text-xs text-neutral-500 text-center py-4">Sign in with Google to request reel uploads and track status.</p>
+                        )}
                     </div>
                 </SectionCard>
                 
@@ -487,6 +621,95 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, onUpdateProfile, onO
                     </div>
                 </SectionCard>
             </div>
+
+            <AnimatePresence>
+                {isRequestModalOpen && (
+                    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => setIsRequestModalOpen(false)}>
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-[var(--surface-color)] border border-white/10 rounded-3xl flex flex-col w-full max-w-lg max-h-[90vh] overflow-hidden shadow-2xl relative"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <header className="flex items-center justify-between p-5 border-b border-white/5 flex-shrink-0">
+                                <h2 className="font-extrabold text-lg text-white flex items-center gap-2">
+                                    <Film className="text-[var(--primary-accent)]" size={20} />
+                                    Request Reel Upload
+                                </h2>
+                                <button onClick={() => setIsRequestModalOpen(false)} className="text-neutral-400 hover:text-white p-1 rounded-full hover:bg-white/5" aria-label="Close modal">
+                                    <X size={20} />
+                                </button>
+                            </header>
+                            <div className="p-6 overflow-y-auto space-y-4 scroll-container">
+                                <div className="space-y-3">
+                                    <input
+                                        type="text"
+                                        placeholder="Reel Title"
+                                        value={requestForm.title}
+                                        onChange={e => setRequestForm(p => ({ ...p, title: e.target.value }))}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm"
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Creator / Artist Name"
+                                        value={requestForm.uploader}
+                                        onChange={e => setRequestForm(p => ({ ...p, uploader: e.target.value }))}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm"
+                                    />
+                                    <textarea
+                                        placeholder="Brief Description (e.g. Bongo Flava vibe dance cover)"
+                                        value={requestForm.description}
+                                        onChange={e => setRequestForm(p => ({ ...p, description: e.target.value }))}
+                                        rows={2}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm resize-none"
+                                    />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <button
+                                            onClick={() => requestVideoInputRef.current?.click()}
+                                            className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-colors cursor-pointer ${
+                                                requestVideoFile ? 'border-green-500/50 bg-green-950/20 text-green-300' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'
+                                            }`}
+                                        >
+                                            <Film size={16} />
+                                            {requestVideoFile ? requestVideoFile.name.slice(0, 15) + '...' : 'Choose Video File'}
+                                        </button>
+                                        <button
+                                            onClick={() => requestCoverInputRef.current?.click()}
+                                            className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-colors cursor-pointer ${
+                                                requestCoverFile ? 'border-green-500/50 bg-green-950/20 text-green-300' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'
+                                            }`}
+                                        >
+                                            <Smile size={16} />
+                                            {requestCoverFile ? 'Thumbnail Selected' : 'Choose Cover (Optional)'}
+                                        </button>
+                                    </div>
+                                    {requestCoverPreview && (
+                                        <div className="relative w-24 h-24 rounded-xl overflow-hidden mx-auto border border-white/10">
+                                            <img src={requestCoverPreview} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                                            <button onClick={() => { setRequestCoverFile(null); setRequestCoverPreview(null); }} className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center text-white">
+                                                <X size={10} />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <input ref={requestVideoInputRef} type="file" accept="video/*" className="hidden" onChange={e => { if (e.target.files?.[0]) setRequestVideoFile(e.target.files[0]); }} />
+                                <input ref={requestCoverInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) { setRequestCoverFile(e.target.files[0]); const url = URL.createObjectURL(e.target.files[0]); setRequestCoverPreview(url); }}} />
+                                
+                                <button
+                                    onClick={handleAddReelRequest}
+                                    disabled={isSubmittingRequest}
+                                    className="w-full flex items-center justify-center gap-2 bg-[var(--primary-accent)] text-black font-black py-3.5 rounded-xl transition-all hover:brightness-110 active:scale-95 disabled:opacity-50 cursor-pointer text-sm uppercase tracking-wider"
+                                >
+                                    {isSubmittingRequest ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                                    {isSubmittingRequest ? 'Uploading...' : 'Submit Reel Request'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </main>
     );
 };

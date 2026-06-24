@@ -82,7 +82,7 @@ class AudiusSource:
 
 class ArchiveSource:
     def search(self, query, limit=20):
-        search_query = f"({query}) AND mediatype:(audio)"
+        search_query = f"({query})"
         url = f"https://archive.org/advancedsearch.php?q={urllib.parse.quote(search_query)}&fl[]=identifier,title,creator,downloads,subject&sort[]=downloads+desc&rows={limit}&output=json"
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})

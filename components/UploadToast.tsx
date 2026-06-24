@@ -24,7 +24,7 @@ const UploadToast: React.FC<UploadToastProps> = ({ progress, onDismiss }) => {
                 }
             }}
             initial={{ y: "-150%" }}
-            animate={{ y: `calc(env(safe-area-inset-top, 0rem) + 1rem)` }}
+            animate={{ y: `calc(env(safe-area-inset-top, 0rem) + 7.5rem)` }}
             exit={{ x: '-150%', opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         >

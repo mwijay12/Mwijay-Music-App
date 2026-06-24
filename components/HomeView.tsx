@@ -18,6 +18,8 @@ interface HomeViewProps {
     isAssistantOpening: boolean;
     onStartDjSession: () => void;
     isDjSessionStarting: boolean;
+    adminSongs?: any[];
+    announcements?: any[];
 }
 
 const MoodCard: React.FC<{ title: string, emoji: string, color: string, onClick: () => void }> = ({ title, emoji, color, onClick }) => (
@@ -43,10 +45,24 @@ const scrollRevealVariants = {
     }
 };
 
-const HomeView: React.FC<HomeViewProps> = ({ profile, librarySongs, onNavigate, onPlaySong, onOpenAssistant, onToggleTheme, onOpenAddMoodModal, isAssistantOpening, onStartDjSession, isDjSessionStarting }) => {
+const HomeView: React.FC<HomeViewProps> = ({ profile, librarySongs, onNavigate, onPlaySong, onOpenAssistant, onToggleTheme, onOpenAddMoodModal, isAssistantOpening, onStartDjSession, isDjSessionStarting, adminSongs = [], announcements = [] }) => {
     const [selectedMood, setSelectedMood] = useState<string | null>(null);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [isScrolled, setIsScrolled] = useState(false);
+    const moodScrollRef = useRef<HTMLDivElement>(null);
+    const touchResumeTimer = useRef<ReturnType<typeof setTimeout>>();
+
+    // Touch-interruptible mood scroller handlers
+    const handleMoodTouchStart = () => {
+        if (touchResumeTimer.current) clearTimeout(touchResumeTimer.current);
+        moodScrollRef.current?.classList.add('is-touching');
+    };
+    const handleMoodTouchEnd = () => {
+        // Resume auto-scroll after a 2s grace period so user can read
+        touchResumeTimer.current = setTimeout(() => {
+            moodScrollRef.current?.classList.remove('is-touching');
+        }, 2000);
+    };
 
     const nameplateFontFamily = fonts.find(f => f.name === profile.nameplateFont)?.family || "'Satoshi', sans-serif";
     const nameplateAnimationClass = `name-anim-${profile.settings.nameplateAnimation || 'none'}`;
@@ -132,6 +148,40 @@ const HomeView: React.FC<HomeViewProps> = ({ profile, librarySongs, onNavigate, 
             <div className="px-6 pb-40 pt-4 scroll-content-with-header max-w-7xl mx-auto w-full">
                 
                 <div className="flex flex-col gap-8">
+                    
+                    {/* Announcements Row */}
+                    {announcements.length > 0 && (
+                        <motion.section 
+                            className="w-full space-y-3"
+                            variants={scrollRevealVariants}
+                            initial="hidden"
+                            whileInView="visible"
+                            viewport={{ once: true, margin: "-50px" }}
+                        >
+                            <h2 className="text-xl font-black text-[var(--text-primary)] tracking-tighter flex items-center gap-2">
+                                <span className="inline-block w-2.5 h-2.5 rounded-full bg-[var(--primary-accent)] animate-ping"></span>
+                                Announcements from David 📢✨
+                            </h2>
+                            <div className="flex flex-col gap-3">
+                                {announcements.map((ann, idx) => (
+                                    <div key={ann.id || idx} className="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-md relative overflow-hidden glare-effect">
+                                        <div className="flex justify-between items-start gap-4 mb-2">
+                                            <span className="text-xs font-bold uppercase tracking-wider bg-[var(--primary-accent)]/10 text-[var(--primary-accent)] px-2 py-0.5 rounded-full">
+                                                {ann.category || 'Developer Update'}
+                                            </span>
+                                            {ann.createdAt && (
+                                                <span className="text-[10px] text-neutral-400 font-medium">
+                                                    {new Date(ann.createdAt?.seconds * 1000 || ann.createdAt).toLocaleDateString()}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <h3 className="font-extrabold text-sm text-white">{ann.title}</h3>
+                                        <p className="text-xs text-neutral-300 mt-1 leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </motion.section>
+                    )}
                     {/* Desktop Hero Section */}
                     <motion.section 
                         className="hidden lg:flex relative w-full h-64 rounded-[2.5rem] overflow-hidden shadow-2xl mb-2 group"
@@ -182,7 +232,13 @@ const HomeView: React.FC<HomeViewProps> = ({ profile, librarySongs, onNavigate, 
                             <h2 className="text-2xl font-black text-[var(--text-primary)] tracking-tighter">What's your mood today?</h2>
                         </div>
                         <div className="w-full px-6">
-                            <div className="flex w-fit animate-scroll group-hover/moods:paused gap-4 py-2">
+                            <div 
+                                ref={moodScrollRef}
+                                className="flex w-fit animate-scroll gap-4 py-2"
+                                onTouchStart={handleMoodTouchStart}
+                                onTouchEnd={handleMoodTouchEnd}
+                                onTouchCancel={handleMoodTouchEnd}
+                            >
                                 {renderMoodList('set1')}
                                 {renderMoodList('set2')}
                             </div>
@@ -217,6 +273,25 @@ const HomeView: React.FC<HomeViewProps> = ({ profile, librarySongs, onNavigate, 
                          </motion.div>
                     )}
                     
+                    {/* Mwijay Originals */}
+                    {adminSongs.length > 0 && (
+                        <motion.div
+                            variants={scrollRevealVariants}
+                            initial="hidden"
+                            whileInView="visible"
+                            viewport={{ once: true, margin: "-50px" }}
+                        >
+                            <section className="relative">
+                                <div className="absolute -inset-4 bg-gradient-to-r from-purple-500/10 via-transparent to-indigo-500/10 rounded-3xl blur-xl pointer-events-none" />
+                                <HorizontalSongScroller
+                                    title="Mwijay Originals ✨"
+                                    songs={adminSongs}
+                                    onPlaySong={onPlaySong}
+                                />
+                            </section>
+                        </motion.div>
+                    )}
+
                     {/* Recently Played */}
                     <motion.div
                         variants={scrollRevealVariants}

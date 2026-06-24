@@ -1,11 +1,12 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronsRight, ChevronsLeft, Brain, Heart, MessageSquare, Download, Share2, Eye, EyeOff } from 'lucide-react';
+import { ChevronsRight, ChevronsLeft, Brain, Heart, MessageSquare, Headphones, Share2, Eye, EyeOff, Volume2, VolumeX } from 'lucide-react';
 import type { Video, Song, ProfileData } from '../types.ts';
 import CommentsModal from './CommentsModal.tsx';
 import { getRandomCoverArt } from './constants.ts';
 import { shareTextOrUrl } from '../utils/helpers.ts';
+import { Capacitor } from '@capacitor/core';
 
 // --- Sub-Components for VideoPlayer ---
 
@@ -85,8 +86,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, onUpdate, onReelActive
   const [isSpeedMenuOpen, setIsSpeedMenuOpen] = useState(false);
   const [currentSpeed, setCurrentSpeed] = useState(1);
   const [isUiMinimal, setIsUiMinimal] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('mwijay_reels_muted') === 'true');
   
   const isThisReelAudioPlaying = nowPlaying?.id === video.id && nowPlaying?.isFromReel;
+
+  // Sync mute state with video element
+  useEffect(() => {
+    if (videoRef.current) {
+        videoRef.current.muted = isMuted;
+    }
+  }, [isMuted, videoSrc]);
+
+  const handleToggleMute = useCallback(() => {
+      setIsMuted(prev => {
+          const next = !prev;
+          localStorage.setItem('mwijay_reels_muted', String(next));
+          if (videoRef.current) videoRef.current.muted = next;
+          return next;
+      });
+  }, []);
 
   const handleToggleControls = useCallback(() => {
     setAreControlsVisible(prev => !prev);
@@ -116,11 +134,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, onUpdate, onReelActive
         const blob = new Blob([video.videoData], { type: 'video/mp4' });
         objectUrl = URL.createObjectURL(blob);
         setVideoSrc(objectUrl);
+    } else if (video.nativeUrl && Capacitor.isNativePlatform()) {
+        setVideoSrc(Capacitor.convertFileSrc(video.nativeUrl));
     } else if (video.url) {
         setVideoSrc(video.url);
     }
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [video.videoData, video.url]);
+  }, [video.videoData, video.url, video.nativeUrl]);
   
   const handleTimeUpdate = () => {
       const videoEl = videoRef.current;
@@ -289,7 +309,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, onUpdate, onReelActive
                 src={videoSrc}
                 loop={profile.settings.reelsAutoScrollLoops === 0}
                 playsInline
-                className={`w-full h-full ${videoDimensions.width > videoDimensions.height ? 'object-contain' : 'object-cover'}`}
+                className="w-full h-full object-contain"
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
                 onEnded={handleEnded}
@@ -322,7 +342,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, onUpdate, onReelActive
                 )}
             </AnimatePresence>
             
-            <div className={`absolute right-2 top-[40%] -translate-y-1/2 flex flex-col items-center gap-4 transition-opacity duration-300 z-30 ${areControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            <div className={`absolute right-2 top-[55%] lg:top-[58%] -translate-y-1/2 flex flex-col items-center gap-4 transition-opacity duration-300 z-30 ${areControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                  {!isUiMinimal && (
                     <>
                         <button onClick={handleToggleFavorite} className="flex items-center justify-center text-white group cursor-pointer" title={video.isFavorite ? 'Unfavorite' : 'Favorite'}>
@@ -335,25 +355,34 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, onUpdate, onReelActive
                                 <MessageSquare size={20} />
                             </div>
                         </button>
-                        <button onClick={() => onPlayAsAudio(video)} className={`flex items-center justify-center text-white group cursor-pointer ${isThisReelAudioPlaying ? 'animate-pulse' : ''}`} title="Save to Library">
+                        <button 
+                            onClick={() => {
+                                onPlayAsAudio(video);
+                                showNotification(`Streaming "${video.title}" audio in background... 🎧`, 'success');
+                            }} 
+                            className={`flex items-center justify-center text-white group cursor-pointer ${isThisReelAudioPlaying ? 'animate-pulse' : ''}`} 
+                            title="Continue Play as Audio"
+                        >
                             <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 flex items-center justify-center group-hover:bg-[var(--primary-accent)]/20 group-hover:border-[var(--primary-accent)]/30 transition-all">
-                                <Download size={20} />
+                                <Headphones size={20} />
                             </div>
                         </button>
                         <button 
-                            onClick={() => {
-                                shareTextOrUrl(
-                                    `Watching ${video.title} on Mwijay Reels`,
-                                    `Check out this reel by ${video.uploader}!`,
-                                    'https://mwijay.app',
-                                    showNotification
-                                );
-                            }} 
+                            onClick={shareTextOrUrl.bind(null, `Watching ${video.title} on Mwijay Reels`, `Check out this reel by ${video.uploader}!`, 'https://mwijay.app', showNotification)} 
                             className="flex items-center justify-center text-white group cursor-pointer" 
                             title="Share"
                         >
                             <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 flex items-center justify-center group-hover:bg-white/20 transition-all">
                                 <Share2 size={20} />
+                            </div>
+                        </button>
+                        <button 
+                            onClick={handleToggleMute} 
+                            className="flex items-center justify-center text-white group cursor-pointer" 
+                            title={isMuted ? 'Unmute' : 'Mute'}
+                        >
+                            <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 flex items-center justify-center group-hover:bg-white/20 transition-all">
+                                {isMuted ? <VolumeX size={20} className="text-red-400" /> : <Volume2 size={20} />}
                             </div>
                         </button>
                     </>

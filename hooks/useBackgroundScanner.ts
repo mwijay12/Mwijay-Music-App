@@ -1,8 +1,10 @@
-
 import { useEffect, useRef } from 'react';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import type { Song, ProfileData } from '../types.ts';
+import { MediaScanner } from '../utils/fileScanner';
+import MediaControl from '../plugins/MediaControl';
+import { safeFileSrc } from '../utils/safeUri';
 
 interface BackgroundScannerProps {
     enabled: boolean;
@@ -18,7 +20,7 @@ export const useBackgroundScanner = ({ enabled, onNewSongsFound, existingSongs, 
 
     const scanForMusic = async () => {
         if (!Capacitor.isNativePlatform() || isScanningRef.current) return;
-        
+
         // Check and request permissions
         try {
             const permStatus = await Filesystem.checkPermissions();
@@ -37,65 +39,72 @@ export const useBackgroundScanner = ({ enabled, onNewSongsFound, existingSongs, 
         if (now - lastScanTimeRef.current < SCAN_INTERVAL) return;
 
         isScanningRef.current = true;
-        console.log('Background scanning started...');
+        console.log('Background scanning started using MediaControl/MediaStore...');
 
         try {
-            const commonDirs = [
-                { path: 'Music', directory: Directory.ExternalStorage },
-                { path: 'Download', directory: Directory.ExternalStorage },
-                { path: 'Documents', directory: Directory.ExternalStorage },
-            ];
-
-            const foundSongs: Song[] = [];
             const existingPaths = new Set(existingSongs.map(s => s.nativeUrl).filter(Boolean));
+            const foundSongs: Song[] = [];
 
-            for (const dir of commonDirs) {
-                try {
-                    const result = await Filesystem.readdir({
-                        path: dir.path,
-                        directory: dir.directory
-                    });
-
-                    for (const file of result.files) {
-                        if (file.type === 'file' && isAudioFile(file.name)) {
-                            const fullPath = `${dir.path}/${file.name}`;
-                            
-                            if (!existingPaths.has(fullPath)) {
-                                // Basic song metadata from filename
-                                const title = file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
-                                const newSong: Song = {
-                                    id: `native-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                                    title: title,
-                                    artist: 'Unknown Artist',
-                                    albumArtUrl: '',
-                                    nativeUrl: fullPath,
-                                    dateAdded: Date.now(),
-                                    source: 'Local Storage'
-                                };
-                                foundSongs.push(newSong);
-                            }
-                        }
+            try {
+                const result = await MediaControl.scanMedia();
+                const nativeSongs = result.audio || [];
+                for (const item of nativeSongs) {
+                    const playUrl = item.uri || item.path;
+                    if (!existingPaths.has(playUrl)) {
+                        foundSongs.push({
+                            id: String(item.id),
+                            title: item.title,
+                            artist: item.artist || 'Unknown Artist',
+                            albumArtUrl: item.artwork ? safeFileSrc(item.artwork) : '',
+                            nativeUrl: playUrl,
+                            dateAdded: item.dateAdded ? item.dateAdded * 1000 : Date.now(),
+                            isFavorite: false,
+                            duration: item.duration ? Math.round(item.duration / 1000) : 0,
+                        });
                     }
-                } catch (e) {
-                    console.warn(`Could not scan directory ${dir.path}:`, e);
                 }
+                if (foundSongs.length > 0) {
+                    console.log(`[BackgroundScanner] Found ${foundSongs.length} new songs via MediaStore`);
+                    onNewSongsFound(foundSongs);
+                }
+                lastScanTimeRef.current = now;
+            } catch (nativeError) {
+                console.warn('[BackgroundScanner] Native scan failed, falling back to FS scanner:', nativeError);
+                // Fallback to TS FS scanner
+                await MediaScanner.scan({
+                    isCancelled: () => false,
+                    onProgress: () => {},
+                    onItemFound: (item) => {
+                        if (item.type === 'audio' && !existingPaths.has(item.path)) {
+                            foundSongs.push({
+                                id: item.id,
+                                title: item.title,
+                                artist: item.artist || 'Unknown Artist',
+                                albumArtUrl: item.artworkPath || '',
+                                nativeUrl: item.path,
+                                dateAdded: item.dateAdded,
+                                isFavorite: false,
+                                duration: item.duration,
+                            });
+                        }
+                    },
+                    onComplete: () => {
+                        if (foundSongs.length > 0) {
+                            console.log(`[BackgroundScanner] FS Scan complete. Found ${foundSongs.length} new songs`);
+                            onNewSongsFound(foundSongs);
+                        }
+                        lastScanTimeRef.current = now;
+                    },
+                    onError: (err) => {
+                        console.error('[BackgroundScanner] FS Scan failed:', err);
+                    },
+                });
             }
-
-            if (foundSongs.length > 0) {
-                onNewSongsFound(foundSongs);
-            }
-            
-            lastScanTimeRef.current = now;
         } catch (error) {
             console.error('Background scan failed:', error);
         } finally {
             isScanningRef.current = false;
         }
-    };
-
-    const isAudioFile = (filename: string) => {
-        const audioExtensions = ['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.aac'];
-        return audioExtensions.some(ext => filename.toLowerCase().endsWith(ext));
     };
 
     useEffect(() => {

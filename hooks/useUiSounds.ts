@@ -1,20 +1,10 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
+import { getSharedAudioContext, resumeSharedContext } from '../services/sharedAudioContext';
 
 export const useUiSounds = () => {
-    const audioContextRef = useRef<AudioContext | null>(null);
-
     const getContext = () => {
-        if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-            try {
-                if (typeof window !== 'undefined') {
-                    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-                }
-            } catch (e) {
-                console.error("Web Audio API is not supported in this browser.", e);
-                return null;
-            }
-        }
-        return audioContextRef.current;
+        resumeSharedContext().catch(() => {});
+        return getSharedAudioContext();
     };
 
     const playTone = useCallback((freq: number, duration: number, type: OscillatorType = 'sine', volume: number = 0.5) => {

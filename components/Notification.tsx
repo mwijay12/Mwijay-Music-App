@@ -30,7 +30,7 @@ const Notification: React.FC<NotificationProps> = ({ message, type, icon }) => {
     return (
         <div 
             className={`fixed left-1/2 -translate-x-1/2 w-[90%] max-w-sm z-[500] transition-all duration-500 ease-in-out ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}
-            style={{ top: 'calc(env(safe-area-inset-top, 0rem) + 1rem)' }}
+            style={{ top: 'calc(env(safe-area-inset-top, 0rem) + 7.5rem)' }}
         >
             <div className="liquid-glass-pane rounded-full p-2 flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${typeClasses[type].bg} ${typeClasses[type].text}`}>

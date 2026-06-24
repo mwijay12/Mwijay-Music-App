@@ -6,12 +6,12 @@ const AchievementUnlockedToast: React.FC<{ achievement: Achievement }> = ({ achi
     return (
         <motion.div
             layout
-            initial={{ y: "-150%", x: "-50%" }}
+            initial={{ y: "150%", x: "-50%" }}
             animate={{ y: 0, x: "-50%" }}
-            exit={{ y: "-150%", x: "-50%" }}
+            exit={{ y: "150%", x: "-50%" }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed left-1/2 w-[90%] max-w-sm z-[100]"
-            style={{ top: 'calc(env(safe-area-inset-top, 0rem) + 1rem)' }}
+            className="fixed left-1/2 w-[90%] max-w-sm z-[999]"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom, 0rem) + 8.5rem)' }}
         >
             <div className="liquid-glass-pane rounded-2xl p-4 shadow-lg relative overflow-hidden">
                 <div className="achievement-toast-confetti">

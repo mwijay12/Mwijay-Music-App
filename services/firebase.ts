@@ -57,24 +57,18 @@ export const signInWithGoogle = async () => {
     try {
         if (Capacitor.isNativePlatform()) {
             try {
-                // Dynamically import to ensure Web environment compiles seamlessly
-                const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
-                try {
-                    await GoogleAuth.initialize();
-                } catch (initErr) {
-                    console.log("GoogleAuth already initialized or bypassed:", initErr);
-                }
-                const googleUser = await GoogleAuth.signIn();
-                const idToken = googleUser.authentication.idToken;
+                const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
+                const result = await FirebaseAuthentication.signInWithGoogle();
+                const idToken = result.credential?.idToken;
                 if (idToken) {
                     const credential = GoogleAuthProvider.credential(idToken);
-                    const result = await signInWithCredential(auth, credential);
-                    return result.user;
+                    const userCredential = await signInWithCredential(auth, credential);
+                    return userCredential.user;
                 } else {
-                    throw new Error("No native Google ID Token retrieved.");
+                    throw new Error("No native Google ID Token retrieved from FirebaseAuthentication plugin.");
                 }
             } catch (nativeErr) {
-                console.warn("Native Google login failed, trying browser fallback...", nativeErr);
+                console.warn("Native Capacitor-Firebase Google login failed, trying browser fallback...", nativeErr);
             }
         }
         const result = await signInWithPopup(auth, googleProvider);

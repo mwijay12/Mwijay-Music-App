@@ -55,7 +55,7 @@ interface SettingsViewProps {
 }
 
 const SettingsView: React.FC<SettingsViewProps> = ({ profile, onUpdateProfile, onNavigate, showNotification, handleManualFileUploads, onRequestPermission, librarySongs, playlists, onOpenSongDetails, onOpenClearDataModal, onFullRestore }) => {
-    const [apiKey, setApiKey] = useState(profile.apiKey || '');
+    const [apiKey, setApiKey] = useState(profile.apiKey || localStorage.getItem('mwijay_ai_key') || '');
     const manualImportRef = useRef<HTMLInputElement>(null);
     const [isScrolled, setIsScrolled] = useState(false);
     const scannerSettings = profile.settings.scannerSettings;
@@ -167,6 +167,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ profile, onUpdateProfile, o
     
     const handleSaveApiKey = () => {
         onUpdateProfile(p => ({...p, apiKey }));
+        localStorage.setItem('mwijay_ai_key', apiKey);
+        import('../services/aiService.ts').then(m => m.aiService.setApiKey(apiKey));
         showNotification("API Key saved!", 'success');
     };
 
@@ -231,6 +233,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ profile, onUpdateProfile, o
                         description="Enable subtle vibrations on UI interactions."
                         isChecked={profile.settings.hapticsEnabled}
                         onToggle={() => handleUpdate('hapticsEnabled', !profile.settings.hapticsEnabled)}
+                    />
+                    <SettingsToggle 
+                        label="Show Live Trending Charts"
+                        description="Display real-time global and local trending music charts in Explore."
+                        isChecked={profile.settings.showTrendingCharts !== false}
+                        onToggle={() => handleUpdate('showTrendingCharts', profile.settings.showTrendingCharts === false ? true : false)}
                     />
                     <SettingsButton 
                         title="Share Mwijay Music" 
@@ -386,9 +394,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ profile, onUpdateProfile, o
                     <div className="liquid-glass-pane p-3 rounded-lg">
                         <div className="flex justify-between items-center mb-1">
                             <p className="font-bold text-[var(--text-primary)]">Crossfade Duration</p>
-                             <span className="font-bold text-sm text-[var(--primary-accent)]">{profile.settings.transitionDuration.toFixed(1)}s</span>
+                             <span className="font-bold text-sm text-[var(--primary-accent)]">{profile.settings.transitionDuration === 0 ? 'Off (Instant)' : `${profile.settings.transitionDuration.toFixed(1)}s`}</span>
                         </div>
-                        <input type="range" min="0.5" max="5" step="0.5" value={profile.settings.transitionDuration} onChange={e => handleUpdate('transitionDuration', parseFloat(e.target.value))} className="w-full themed-slider" style={{ backgroundSize: `${((profile.settings.transitionDuration - 0.5) / 4.5) * 100}% 100%` }} />
+                        <input type="range" min="0" max="5" step="0.5" value={profile.settings.transitionDuration} onChange={e => handleUpdate('transitionDuration', parseFloat(e.target.value))} className="w-full themed-slider" style={{ backgroundSize: `${(profile.settings.transitionDuration / 5) * 100}% 100%` }} />
                     </div>
                      <div className="liquid-glass-pane glare-effect p-3 rounded-lg">
                         <div className="flex justify-between items-center mb-2">
@@ -409,6 +417,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ profile, onUpdateProfile, o
                         description="Balances loudness across all songs." 
                         isChecked={profile.settings.volumeNormalization} 
                         onToggle={() => handleUpdate('volumeNormalization', !profile.settings.volumeNormalization)}
+                    />
+                     <SettingsToggle 
+                        label="Advanced DSP Audio Effects" 
+                        description="Enable Web Audio DSP effects (Equalizer, Reverb, Pitch shifting). Disabling this ensures ultra-stable standard mobile playback." 
+                        isChecked={profile.settings.audioEffectsEnabled !== false} 
+                        onToggle={() => handleUpdate('audioEffectsEnabled', profile.settings.audioEffectsEnabled === false ? true : false)} 
                     />
                 </SettingsGroup>
                 

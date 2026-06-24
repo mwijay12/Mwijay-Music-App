@@ -1,0 +1,50 @@
+{
+  "appId": "com.mwijay.music",
+  "productName": "Mwijay Music",
+  "copyright": "Copyright © 2025 Mwijay",
+
+  "directories": {
+    "output": "release",
+    "buildResources": "public"
+  },
+
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*",
+    "node_modules/**/*",
+    "package.json"
+  ],
+
+  "extraResources": [
+    {
+      "from": "public",
+      "to": "public",
+      "filter": ["**/*"]
+    }
+  ],
+
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/icon.ico",
+    "requestedExecutionLevel": "asInvoker"
+  },
+
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "allowElevation": true,
+    "installerIcon": "public/icon.ico",
+    "uninstallerIcon": "public/icon.ico",
+    "installerHeaderIcon": "public/icon.ico",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Mwijay Music"
+  },
+
+  "publish": null
+}

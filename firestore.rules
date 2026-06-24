@@ -165,5 +165,16 @@ service cloud.firestore {
       );
       allow delete: if isSignedIn() && existing().ownerId == request.auth.uid;
     }
+
+    // 10. Admin Songs & Announcements (For David Mwijage's AI creations and announcements)
+    match /admin_songs/{songId} {
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.token.email == 'davidbyanmwijage@gmail.com';
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.token.email == 'davidbyanmwijage@gmail.com';
+    }
   }
 }

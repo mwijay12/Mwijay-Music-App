@@ -20,7 +20,7 @@ import {
     ListMusic,
     ChevronDown
 } from 'lucide-react';
-import { getZenContent, textToSpeech } from '../services/geminiService.ts';
+import { aiService } from '../services/aiService.ts';
 import { zenContent } from '../data/content.ts';
 import { decode } from '../utils/audioUtils.ts';
 import { Song } from '../types';
@@ -386,7 +386,7 @@ export const ZenModeScreen = ({ onBack, userTracks, onAddTracks, onPlayTrack }: 
         try {
             const topics = ['mindfulness', 'inner peace', 'gratitude', 'resilience', 'focus'];
             const randomTopic = topics[Math.floor(Math.random() * topics.length)];
-            let aiContent = await getZenContent(randomTopic);
+            let aiContent = await aiService.getZenContent(randomTopic);
             
             // Clean markdown code blocks if present
             aiContent = aiContent.replace(/```html|```/g, '').trim();
@@ -408,18 +408,12 @@ export const ZenModeScreen = ({ onBack, userTracks, onAddTracks, onPlayTrack }: 
     useEffect(() => {
         fetchContent();
         return () => {
-            if (window.speechSynthesis) {
-                window.speechSynthesis.cancel();
-            }
             sourceRef.current?.stop();
         };
     }, [fetchContent]);
 
     const handleReadAloud = async () => {
         if (isReading) {
-            if (window.speechSynthesis) {
-                window.speechSynthesis.cancel();
-            }
             sourceRef.current?.stop();
             setIsReading(false);
             return;
@@ -429,7 +423,7 @@ export const ZenModeScreen = ({ onBack, userTracks, onAddTracks, onPlayTrack }: 
         try {
             // Strip HTML for TTS
             const plainText = content.replace(/<[^>]*>/g, '').trim();
-            const base64Audio = await textToSpeech(plainText);
+            const base64Audio = await aiService.textToSpeech(plainText);
             
             if (base64Audio) {
                 const buffer = await decode(base64Audio);
@@ -447,39 +441,12 @@ export const ZenModeScreen = ({ onBack, userTracks, onAddTracks, onPlayTrack }: 
                 sourceRef.current.onended = () => setIsReading(false);
                 sourceRef.current.start();
             } else {
-                // Fallback to offline browser/native mobile TTS
-                if ('speechSynthesis' in window) {
-                    window.speechSynthesis.cancel();
-                    const utterance = new SpeechSynthesisUtterance(plainText);
-                    utterance.onend = () => {
-                        setIsReading(false);
-                    };
-                    utterance.onerror = (e) => {
-                        console.error("SpeechSynthesis error:", e);
-                        setIsReading(false);
-                    };
-                    window.speechSynthesis.speak(utterance);
-                } else {
-                    console.warn("Speech synthesis not supported in this browser.");
-                    setIsReading(false);
-                }
-            }
-        } catch (error) {
-            console.error("TTS Error, using speech synthesis fallback:", error);
-            try {
-                if ('speechSynthesis' in window) {
-                    window.speechSynthesis.cancel();
-                    const plainText = content.replace(/<[^>]*>/g, '').trim();
-                    const utterance = new SpeechSynthesisUtterance(plainText);
-                    utterance.onend = () => setIsReading(false);
-                    utterance.onerror = () => setIsReading(false);
-                    window.speechSynthesis.speak(utterance);
-                } else {
-                    setIsReading(false);
-                }
-            } catch (err) {
+                console.warn("[Zen] No audio from TTS, skipping");
                 setIsReading(false);
             }
+        } catch (error) {
+            console.warn("[Zen] TTS error, skipping:", error);
+            setIsReading(false);
         }
     };
 

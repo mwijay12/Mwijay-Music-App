@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { lyricsAi, LyricsAnalysis as AnalysisType } from '../services/lyricsAiService';
+import { aiService } from '../services/aiService.ts';
+import { LyricsAnalysis as AnalysisType } from '../services/lyricsAiService';
 import { Sparkles, BrainCircuit, RefreshCw, MessageSquare } from 'lucide-react';
 
 interface LyricsAnalysisProps {
@@ -23,7 +24,7 @@ export function LyricsAnalysis({
     setError('');
     
     try {
-      const result = await lyricsAi.analyzeLyrics(
+      const result = await aiService.analyzeLyrics(
         songTitle, 
         artist, 
         lyricsText

@@ -1,9 +1,9 @@
-
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import type { ProfileData, Song, Video } from '../types.ts';
 import { getRandomCoverArt } from '../components/constants.ts';
+import { fileScannerService } from '../services/fileScannerService.ts';
 
 declare const jsmediatags: any;
 
@@ -82,24 +82,63 @@ export const addToTopRadios = (
 };
 
 export const fadeAudio = (audio: HTMLAudioElement, to: number, duration: number, onComplete?: () => void) => {
-    const from = audio.volume;
-    const diff = to - from;
-    const startTime = performance.now();
-
-    const animate = (currentTime: number) => {
-        const elapsedTime = currentTime - startTime;
-        const progress = Math.min(elapsedTime / duration, 1);
-        audio.volume = Math.max(0, Math.min(1, from + diff * progress));
-
-        if (progress < 1) {
-            requestAnimationFrame(animate);
-        } else {
-            if (onComplete) {
-                onComplete();
-            }
+    if (duration <= 0) {
+        try {
+            audio.volume = Math.max(0, Math.min(1, to));
+        } catch (e) {
+            console.warn("Failed to set audio volume direct:", e);
         }
+        if (onComplete) onComplete();
+        return;
+    }
+
+    let from = 1;
+    try {
+        from = audio.volume;
+    } catch (e) {
+        console.warn("Failed to read audio volume:", e);
+        if (onComplete) onComplete();
+        return;
+    }
+
+    const diff = to - from;
+    const startTime = Date.now();
+    let completed = false;
+
+    const cleanupAndComplete = () => {
+        if (completed) return;
+        completed = true;
+        clearInterval(intervalId);
+        clearTimeout(safetyTimeoutId);
+        try {
+            audio.volume = Math.max(0, Math.min(1, to));
+        } catch (e) {
+            console.warn("Failed to set final audio volume:", e);
+        }
+        if (onComplete) onComplete();
     };
-    requestAnimationFrame(animate);
+
+    // Step every 50ms instead of requestAnimationFrame for background safety
+    const intervalId = setInterval(() => {
+        const elapsedTime = Date.now() - startTime;
+        const progress = Math.min(elapsedTime / duration, 1);
+        try {
+            audio.volume = Math.max(0, Math.min(1, from + diff * progress));
+        } catch (e) {
+            console.warn("Failed to set audio volume in interval:", e);
+            cleanupAndComplete();
+            return;
+        }
+
+        if (progress >= 1) {
+            cleanupAndComplete();
+        }
+    }, 50);
+
+    // Safety timeout to ensure onComplete is ALWAYS called
+    const safetyTimeoutId = setTimeout(() => {
+        cleanupAndComplete();
+    }, duration + 100);
 };
 
 export const processVideoFileMeta = (fileName: string, nativePath: string, dateAdded: number): Video => {
@@ -193,22 +232,39 @@ export const parseID3v2 = (arrayBuffer: ArrayBuffer): { title?: string, artist?:
         let albumArtUrl: string | undefined;
         
         const decodeText = (bytes: Uint8Array, encoding: number): string => {
-            if (encoding === 0) { // ISO-8859-1
-                return Array.from(bytes).map(b => String.fromCharCode(b)).join('').trim();
-            } else if (encoding === 1) { // UTF-16 with BOM
-                if (bytes.length < 2) return '';
-                const hasBOM = (bytes[0] === 0xFF && bytes[1] === 0xFE) || (bytes[0] === 0xFE && bytes[1] === 0xFF);
-                const start = hasBOM ? 2 : 0;
-                let str = '';
-                for (let i = start; i < bytes.length - 1; i += 2) {
-                    const charCode = bytes[i] | (bytes[i+1] << 8); // Little Endian assumption
-                    if (charCode !== 0) str += String.fromCharCode(charCode);
+            try {
+                if (encoding === 0) { // ISO-8859-1 or GBK or UTF-8
+                    try {
+                        const decodedUtf8 = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+                        return decodedUtf8.replace(/\0/g, '').trim();
+                    } catch (e) {
+                        try {
+                            const decodedGbk = new TextDecoder('gb18030', { fatal: true }).decode(bytes);
+                            if (/[\u4e00-\u9fa5]/.test(decodedGbk)) {
+                                return decodedGbk.replace(/\0/g, '').trim();
+                            }
+                        } catch (errGbk) {}
+                        return new TextDecoder('iso-8859-1').decode(bytes).replace(/\0/g, '').trim();
+                    }
+                } else if (encoding === 1) { // UTF-16 with BOM
+                    if (bytes.length >= 2) {
+                        const bom = (bytes[0] << 8) | bytes[1];
+                        if (bom === 0xFEFF) {
+                            return new TextDecoder('utf-16be').decode(bytes.subarray(2)).replace(/\0/g, '').trim();
+                        } else if (bom === 0xFFFE) {
+                            return new TextDecoder('utf-16le').decode(bytes.subarray(2)).replace(/\0/g, '').trim();
+                        }
+                    }
+                    return new TextDecoder('utf-16').decode(bytes).replace(/\0/g, '').trim();
+                } else if (encoding === 2) { // UTF-16BE without BOM
+                    return new TextDecoder('utf-16be').decode(bytes).replace(/\0/g, '').trim();
+                } else if (encoding === 3) { // UTF-8
+                    return new TextDecoder('utf-8').decode(bytes).replace(/\0/g, '').trim();
                 }
-                return str.trim();
-            } else if (encoding === 3) { // UTF-8
-                return new TextDecoder('utf-8').decode(bytes).trim();
+            } catch (err) {
+                console.warn('TextDecoder failed, using custom charCode conversion:', err);
             }
-            return '';
+            return Array.from(bytes).filter(b => b !== 0).map(b => String.fromCharCode(b)).join('').trim();
         };
 
         const limit = Math.min(tagSize + 10, view.byteLength);
@@ -268,7 +324,11 @@ export const parseID3v2 = (arrayBuffer: ArrayBuffer): { title?: string, artist?:
                             binary += String.fromCharCode.apply(null, chunk);
                         }
                         const base64String = btoa(binary);
-                        albumArtUrl = `data:${mimeType || 'image/jpeg'};base64,${base64String}`;
+                        let cleanMime = mimeType.replace(/\0/g, '').trim().toLowerCase();
+                        if (!cleanMime || !cleanMime.startsWith('image/')) {
+                            cleanMime = 'image/jpeg';
+                        }
+                        albumArtUrl = `data:${cleanMime};base64,${base64String}`;
                     }
                 } catch (e) {
                     console.warn("Custom APIC tag decode failed", e);
@@ -354,7 +414,11 @@ export const processAudioFileBuffer = (buffer: ArrayBuffer, fileName: string, na
                             }
                             
                             const base64String = btoa(binary);
-                            albumArtUrl = `data:${picture.format};base64,${base64String}`;
+                            let format = (picture.format || 'image/jpeg').toLowerCase();
+                            if (!format.startsWith('image/')) {
+                                format = 'image/' + format;
+                            }
+                            albumArtUrl = `data:${format};base64,${base64String}`;
                         } catch (e) {
                             console.warn("Failed to process cover art in jsmediatags", e);
                         }
@@ -435,76 +499,7 @@ export const scanDeviceForMedia = async (
     progressCallback: (current: number, total: number, fileName: string) => void,
     scannerSettings: ProfileData['settings']['scannerSettings']
 ): Promise<{ songs: Song[], videos: Video[] }> => {
-    if (!Capacitor.isNativePlatform()) {
-        progressCallback(1,1, 'Scanning not available on web.');
-        return { songs: [], videos: [] };
-    }
-
-    const newSongs: Song[] = [];
-    const newVideos: Video[] = [];
-
-    const dirsToScan: Directory[] = [Directory.Documents];
-    let totalFiles = 0;
-    let processedFiles = 0;
-
-    const scanDirectory = async (directory: Directory, path = '') => {
-        try {
-            const result = await Filesystem.readdir({
-                path: path,
-                directory: directory
-            });
-
-            for (const file of result.files) {
-                const filePath = `${path}/${file.name}`;
-                if (scannerSettings.excludedFolders.some(folder => filePath.includes(folder))) {
-                    continue;
-                }
-
-                if (file.type === 'directory') {
-                    await scanDirectory(directory, filePath);
-                } else if (file.name.match(/\.(mp3|m4a|aac|wav|ogg|flac)$/i)) {
-                    if (file.size && file.size / (1024 * 1024) < scannerSettings.minFileSizeMB) continue;
-                    
-                    try {
-                        const fileContent = await Filesystem.readFile({
-                            path: filePath,
-                            directory: directory
-                        });
-                        const buffer = Uint8Array.from(atob(fileContent.data as string), c => c.charCodeAt(0)).buffer;
-                        // Use current time for newly scanned files to ensure they show up
-                        const song = await processAudioFileBuffer(buffer, file.name, file.uri, Date.now());
-                        if (song) {
-                            if (song.duration && song.duration < scannerSettings.minSongDurationSeconds) continue;
-                            newSongs.push(song);
-                        }
-                    } catch (e) {
-                        console.error("Error processing audio file:", filePath, String(e));
-                    }
-                } else if (file.name.match(/\.(mp4|mov|webm|avi)$/i)) {
-                    if (file.size && file.size / (1024 * 1024) < scannerSettings.minFileSizeMB) continue;
-                    const video = processVideoFileMeta(file.name, file.uri, Date.now());
-                    newVideos.push(video);
-                }
-                 processedFiles++;
-                 progressCallback(processedFiles, totalFiles, file.name);
-            }
-        } catch (e) {
-            console.log(`Could not read directory: ${path} in ${directory}. It might not exist.`);
-        }
-    };
-    
-     for (const dir of dirsToScan) {
-        try {
-            const result = await Filesystem.readdir({ path: '', directory: dir });
-            totalFiles += result.files.length;
-        } catch (e) {}
-    }
-
-    for (const dir of dirsToScan) {
-        await scanDirectory(dir);
-    }
-    
-    return { songs: newSongs, videos: newVideos };
+    return fileScannerService.scanMedia(scannerSettings, progressCallback);
 };
 
 export const getDominantColor = (imageUrl: string): Promise<string | null> => {
@@ -668,12 +663,27 @@ export const shareTextOrUrl = async (
     url?: string,
     showNotification?: (message: string, type?: 'success' | 'info' | 'error') => void
 ) => {
+    let finalUrl = url;
+    if (finalUrl) {
+        if (finalUrl.includes('localhost') || finalUrl.includes('127.0.0.1') || finalUrl.includes('capacitor://')) {
+            try {
+                // Handle different port structures and protocols
+                finalUrl = finalUrl
+                    .replace(/https?:\/\/localhost(:\d+)?/g, 'https://mwijay-music-app.vercel.app')
+                    .replace(/https?:\/\/127\.0\.0\.1(:\d+)?/g, 'https://mwijay-music-app.vercel.app')
+                    .replace(/capacitor:\/\/localhost(:\d+)?/g, 'https://mwijay-music-app.vercel.app');
+            } catch (e) {
+                console.warn('URL rewrite failed, using original link:', e);
+            }
+        }
+    }
+
     if (Capacitor.isNativePlatform()) {
         try {
             await Share.share({
                 title,
                 text,
-                url,
+                url: finalUrl,
                 dialogTitle: title,
             });
         } catch (error) {
@@ -684,14 +694,14 @@ export const shareTextOrUrl = async (
             await navigator.share({
                 title,
                 text,
-                url,
+                url: finalUrl,
             });
         } catch (error) {
             console.log('Error sharing in browser:', error);
         }
     } else {
         try {
-            await navigator.clipboard.writeText(`${title} - ${text} ${url || ''}`);
+            await navigator.clipboard.writeText(`${title} - ${text} ${finalUrl || ''}`);
             if (showNotification) showNotification('Copied sharing info to clipboard!', 'success');
         } catch (err) {
             console.error('Clipboard copy failed:', err);

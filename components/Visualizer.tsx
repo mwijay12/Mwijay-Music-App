@@ -48,6 +48,10 @@ const CanvasVisualizer: React.FC<{ type: string, audioFx: AudioFxNodes | null, i
             });
         }
 
+        // Persistent visualizer states
+        const smoothHeights = new Array(32).fill(0);
+        const smoothCaps = new Array(32).fill(0);
+
         const render = () => {
             animationId = requestAnimationFrame(render);
             const width = canvas.clientWidth;
@@ -61,8 +65,11 @@ const CanvasVisualizer: React.FC<{ type: string, audioFx: AudioFxNodes | null, i
                 for(let i=0; i<20; i++) sum += dataArray[i]; // Low freqs
                 beatValue = sum / 20 / 255; 
             } else if (isPlaying) {
-                // Simulated beat
-                beatValue = (Math.sin(Date.now() * 0.005) * 0.5 + 0.5) * 0.5;
+                // Highly realistic 120 BPM rhythmic kick-drum pulse simulation for fallback beat sync
+                const time = Date.now();
+                const period = 500; // 500ms = 120 BPM
+                const progress = (time % period) / period;
+                beatValue = Math.exp(-progress * 6.0) * 0.85;
             }
 
             ctx.fillStyle = color;
@@ -264,6 +271,83 @@ const CanvasVisualizer: React.FC<{ type: string, audioFx: AudioFxNodes | null, i
                     const barHeight = (dataArray[i] / 255) * height;
                     ctx.fillRect(x, height - barHeight, barWidth, barHeight);
                     x += barWidth + 1;
+                }
+            } else if (type === 'beat-synced-spectral' && dataArray) {
+                const binSize = Math.max(1, Math.floor(dataArray.length / 32));
+                const barW = (width / 32) - 2;
+                for (let i = 0; i < 32; i++) {
+                    let sum = 0;
+                    for (let j = 0; j < binSize; j++) {
+                        sum += dataArray[Math.min(dataArray.length - 1, i * binSize + j)];
+                    }
+                    const val = sum / binSize / 255;
+                    const targetHeight = val * height * 0.85;
+
+                    if (targetHeight > smoothHeights[i]) {
+                        smoothHeights[i] = targetHeight;
+                    } else {
+                        smoothHeights[i] -= (height * 0.015);
+                    }
+                    smoothHeights[i] = Math.max(0, smoothHeights[i]);
+
+                    if (smoothHeights[i] > smoothCaps[i]) {
+                        smoothCaps[i] = smoothHeights[i];
+                    } else {
+                        smoothCaps[i] -= (height * 0.005);
+                    }
+                    smoothCaps[i] = Math.max(0, smoothCaps[i]);
+
+                    const x = i * (barW + 2);
+                    const h = smoothHeights[i];
+
+                    const grad = ctx.createLinearGradient(x, height, x, height - h);
+                    grad.addColorStop(0, color);
+                    grad.addColorStop(1, 'rgba(255, 255, 255, 0.4)');
+                    ctx.fillStyle = grad;
+
+                    ctx.beginPath();
+                    if (ctx.roundRect) {
+                        ctx.roundRect(x, height - h, barW, h, [4, 4, 0, 0]);
+                    } else {
+                        ctx.rect(x, height - h, barW, h);
+                    }
+                    ctx.fill();
+
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(x, height - smoothCaps[i] - 4, barW, 2);
+                }
+            } else if (type === 'rhythmic-grid') {
+                const rows = 7;
+                const cols = 7;
+                const cellW = width / cols;
+                const cellH = height / rows;
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const dist = Math.sqrt(Math.pow(r - 3, 2) + Math.pow(c - 3, 2));
+                        let val = 0;
+                        if (dataArray) {
+                            const idx = Math.min(dataArray.length - 1, Math.floor(dist * 12));
+                            val = dataArray[idx] / 255;
+                        } else {
+                            val = beatValue * (1 - dist / 5);
+                        }
+                        
+                        const maxRadius = Math.min(cellW, cellH) * 0.4;
+                        const size = maxRadius * (0.2 + val * 0.8);
+                        const x = c * cellW + cellW / 2;
+                        const y = r * cellH + cellH / 2;
+
+                        ctx.save();
+                        ctx.globalAlpha = 0.15 + val * 0.85;
+                        ctx.fillStyle = color;
+                        ctx.shadowColor = color;
+                        ctx.shadowBlur = val * 10;
+
+                        ctx.beginPath();
+                        ctx.arc(x, y, Math.max(2, size), 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.restore();
+                    }
                 }
             } else {
                 // Fallback / legacy bars

@@ -3,16 +3,24 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "tsx server.ts",
     "build": "tsc && vite build",
     "lint": "tsc --noEmit",
     "preview": "vite preview",
     "cap:sync": "npx cap sync",
-    "cap:open:android": "npx cap open android"
+    "cap:open:android": "npx cap open android",
+    "electron:compile": "tsc --project electron/tsconfig.json && powershell -Command \"Copy-Item -Path 'dist-electron/main.js' -Destination 'dist-electron/main.cjs' -Force; Copy-Item -Path 'dist-electron/preload.js' -Destination 'dist-electron/preload.cjs' -Force\"",
+    "electron:dev": "npm run electron:compile && concurrently --kill-others \"npm run dev\" \"wait-on http://localhost:3000 && cross-env ELECTRON_DEV=true NODE_ENV=development electron .\"",
+    "electron:build": "cross-env ELECTRON_BUILD=true npm run build && npm run electron:compile && electron-builder --win",
+    "electron:preview": "npm run electron:compile && cross-env NODE_ENV=production electron ."
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1075.0",
+    "@aws-sdk/s3-request-presigner": "^3.1075.0",
     "@capacitor-community/text-to-speech": "^5.1.0",
+    "@capacitor-firebase/authentication": "^6.3.1",
     "@capacitor/android": "^6.2.1",
     "@capacitor/app": "^6.0.3",
     "@capacitor/camera": "^6.1.3",
@@ -29,7 +37,6 @@
     "@google/genai": "^1.21.0",
     "@tailwindcss/vite": "^4.2.1",
     "@types/express": "^5.0.6",
-    "cloudinary": "^2.10.0",
     "express": "^5.2.1",
     "firebase": "^12.13.0",
     "framer-motion": "^12.23.22",
@@ -37,6 +44,7 @@
     "jsmediatags": "^3.9.7",
     "lucide-react": "^0.577.0",
     "meyda": "^5.6.3",
+    "multer": "^2.2.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "styled-components": "^6.3.11",
@@ -53,7 +61,14 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
+    "jimp": "^1.6.1",
+    "png-to-ico": "^3.0.1",
     "typescript": "^5.4.5",
-    "vite": "^5.2.11"
+    "vite": "^5.2.11",
+    "wait-on": "^9.0.10"
   }
 }

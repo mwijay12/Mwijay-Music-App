@@ -131,6 +131,12 @@ const LibraryView: React.FC<LibraryViewProps> = ({ songs, playlists, recentlyPla
     // Advanced sorting and filtering state
     const [sortBy, setSortBy] = useState<'recently-added' | 'most-played' | 'a-z' | 'z-a' | 'longest' | 'shortest'>('recently-added');
     const [filters, setFilters] = useState<FilterOption>({});
+    const [visibleCount, setVisibleCount] = useState(50);
+
+    // Reset visible count when search or filters change
+    useEffect(() => {
+        setVisibleCount(50);
+    }, [searchTerm, filters, sortBy]);
 
     const [quizStats, setQuizStats] = useState({ won: 0, accuracy: 0 });
 
@@ -272,7 +278,13 @@ const LibraryView: React.FC<LibraryViewProps> = ({ songs, playlists, recentlyPla
     };
 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-        setIsScrolled(e.currentTarget.scrollTop > 50);
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        setIsScrolled(scrollTop > 50);
+        
+        // Lazy load more songs when scrolling near bottom (within 300px)
+        if (scrollHeight - scrollTop - clientHeight < 300) {
+            setVisibleCount(prev => Math.min(prev + 50, filteredSongs.length));
+        }
     };
 
     const recentlyAddedSongs = useMemo(() => {
@@ -334,37 +346,30 @@ const LibraryView: React.FC<LibraryViewProps> = ({ songs, playlists, recentlyPla
                     )}
                 </div>
 
-                {/* Advanced Sort & Filters controls */}
-                <div className="library-controls mb-4 flex items-center justify-between gap-4">
-                  <div className="library-sort flex items-center gap-2 flex-1">
-                    <label className="library-sort-label text-xs text-[var(--text-secondary)] whitespace-nowrap">Sort by:</label>
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as any)}
-                      className="library-sort-select flex-1 bg-[var(--surface-color)] border border-white/10 rounded-xl px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none"
-                    >
-                      <option value="recently-added">Recently Added</option>
-                      <option value="most-played">Most Played</option>
-                      <option value="a-z">Title A-Z</option>
-                      <option value="z-a">Title Z-A</option>
-                      <option value="longest">Longest First</option>
-                      <option value="shortest">Shortest First</option>
-                    </select>
+                {/* Advanced Sort horizontal scroller pills */}
+                <div className="library-controls mb-6">
+                  <div className="flex gap-2.5 overflow-x-auto pb-2 scroll-container no-scrollbar items-center">
+                    <span className="text-[10px] uppercase tracking-widest text-[var(--text-secondary)] font-extrabold pr-1">Sort</span>
+                    {[
+                      { value: 'recently-added', label: 'Recently Added' },
+                      { value: 'most-played', label: 'Mostly Played' },
+                      { value: 'a-z', label: 'Title (A-Z)' },
+                      { value: 'longest', label: 'Longest First' },
+                      { value: 'shortest', label: 'Shortest First' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setSortBy(opt.value as any)}
+                        className={`px-4 py-2 rounded-full text-xs font-black whitespace-nowrap transition-all duration-250 border ${
+                          sortBy === opt.value
+                            ? 'bg-[var(--primary-accent)] text-black border-[var(--primary-accent)] shadow-[0_0_12px_rgba(200,240,82,0.25)] scale-[1.03]'
+                            : 'bg-[var(--surface-color)]/60 text-[var(--text-secondary)] border-white/5 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
-                  
-                  <button
-                    onClick={() => setIsSourceFilterOpen(true)}
-                    className={`library-filter-btn flex items-center gap-2 px-4 py-2 bg-[var(--surface-color)] hover:bg-white/10 border ${activeFilterCount > 0 ? 'border-[var(--primary-accent)] text-[var(--primary-accent)]' : 'border-white/10 text-[var(--text-primary)]'} rounded-xl text-sm transition-colors`}
-                    aria-label="Open filters"
-                  >
-                    <Filter size={16} />
-                    <span>Filters</span>
-                    {activeFilterCount > 0 && (
-                      <span className="filter-badge bg-red-500 text-white rounded-full text-[10px] font-bold px-1.5 py-0.5 min-w-[18px] text-center">
-                        {activeFilterCount}
-                      </span>
-                    )}
-                  </button>
                 </div>
 
                 {/* Active filters chips */}
@@ -791,43 +796,11 @@ const LibraryView: React.FC<LibraryViewProps> = ({ songs, playlists, recentlyPla
                     </div>
                 </section>
 
-                {/* ==================== DEDICATED VIDEOS & REELS SECTION ==================== */}
-                {videos && videos.length > 0 && (
-                    <section className="mb-10">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-bold text-xs uppercase tracking-widest text-[var(--text-secondary)]">Reels & Videos</h3>
-                            <button onClick={() => onNavigate('Reels')} className="text-xs text-[var(--primary-accent)] font-bold">
-                                View All
-                            </button>
-                        </div>
-                        <div className="flex overflow-x-auto gap-5 pb-4 -mx-6 px-6 scroll-container no-scrollbar">
-                            {videos.map(video => (
-                                <button
-                                    key={video.id}
-                                    onClick={() => onPlayVideo(video.id)}
-                                    className="relative flex-shrink-0 w-48 h-32 rounded-2xl overflow-hidden border border-white/10 transition-transform hover:scale-105 group text-left shadow-lg"
-                                >
-                                    <div 
-                                        className="absolute inset-0 w-full h-full bg-cover bg-center group-hover:scale-110 transition-transform duration-500"
-                                        style={{ backgroundImage: `url(${video.thumbnailUrl || 'linear-gradient(135deg, #0f172a, #1e293b)'})` }}
-                                    ></div>
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-                                    <div className="absolute inset-0 flex flex-col justify-end p-3">
-                                        <h4 className="text-xs font-bold text-white truncate w-full shadow-md">{video.title}</h4>
-                                        <p className="text-[10px] text-neutral-300 shadow-md truncate">{video.uploader || "Mwijay Reels"}</p>
-                                    </div>
-                                    <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-xs text-white">
-                                        ▶
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </section>
-                )}
+
 
                 {/* Compacted manual upload button in blank state */}
                 <ul className="space-y-1">
-                    {filteredSongs.map(song => (
+                    {filteredSongs.slice(0, visibleCount).map(song => (
                         <SongListItem 
                             key={song.id} 
                             domId={`library-song-${song.id}`}

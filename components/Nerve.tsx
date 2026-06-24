@@ -42,7 +42,7 @@ const Nerve: React.FC<NerveProps> = ({ items, activeItem, onItemClick, isHidden 
                         </div>
                     ) : (
                         <div className="flex flex-col items-center">
-                            <h1 className="text-3xl font-black text-[var(--primary-accent)] drop-shadow-md" style={{ fontFamily: "'Lobster', cursive" }}>M</h1>
+                            <img src="/icon-512.png" alt="Mwijay" className="w-10 h-10 object-contain drop-shadow-md" />
                         </div>
                     )}
                     {onToggleCollapse && (
@@ -82,6 +82,7 @@ const Nerve: React.FC<NerveProps> = ({ items, activeItem, onItemClick, isHidden 
                             ) : (
                                 <img 
                                     src={profile.avatarUrl || 'https://via.placeholder.com/150'} 
+                                    referrerPolicy="no-referrer"
                                     className="w-10 h-10 rounded-full border-2 border-transparent group-hover:border-[var(--primary-accent)] transition-colors object-cover flex-shrink-0" 
                                     alt="Profile" 
                                     onError={(e) => {

@@ -5,9 +5,9 @@ import type { ChatMessage, Song, ProfileData } from '../types.ts';
 import { assistantKnowledge } from './assistantKnowledge.ts';
 
 const GEMINI_KEYS = (process.env.GEMINI_KEYS ? process.env.GEMINI_KEYS.split(',') : []).filter(Boolean);
-const GROQ_KEY = process.env.GROQ_API_KEY || '';
-const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || '';
-const CEREBRAS_KEY = process.env.CEREBRAS_API_KEY || '';
+const GROQ_KEYS = (process.env.GROQ_KEYS ? process.env.GROQ_KEYS.split(',') : []).filter(Boolean);
+const OPENROUTER_KEYS = (process.env.OPENROUTER_KEYS ? process.env.OPENROUTER_KEYS.split(',') : []).filter(Boolean);
+const CEREBRAS_KEYS = (process.env.CEREBRAS_KEYS ? process.env.CEREBRAS_KEYS.split(',') : []).filter(Boolean);
 const GEMMA_MODELS = ['gemma-3-27b-it', 'gemma-3-12b-it', 'gemma-3-4b-it'];
 
 
@@ -28,99 +28,108 @@ const callThirdPartyFallbacks = async (text: string, history: ChatMessage[]): Pr
         { role: "user", content: text }
     ];
 
-    if (OPENROUTER_KEY) {
-        for (const model of GEMMA_MODELS) {
-            try {
-                console.log(`Trying OpenRouter with model: google/${model}...`);
-                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${OPENROUTER_KEY}`,
-                        "HTTP-Referer": window.location.origin,
-                        "X-Title": "Mwijay Music App"
-                    },
-                    body: JSON.stringify({
-                        model: `google/${model}`,
-                        messages: formattedMessages,
-                        temperature: 0.7
-                    })
-                });
+    // OpenRouter: try all keys × all models
+    if (OPENROUTER_KEYS.length > 0) {
+        for (const key of OPENROUTER_KEYS) {
+            for (const model of GEMMA_MODELS) {
+                try {
+                    console.log(`Trying OpenRouter key with model: google/${model}...`);
+                    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${key}`,
+                            "HTTP-Referer": window.location.origin,
+                            "X-Title": "Mwijay Music App"
+                        },
+                        body: JSON.stringify({
+                            model: `google/${model}`,
+                            messages: formattedMessages,
+                            temperature: 0.7
+                        })
+                    });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    const content = data?.choices?.[0]?.message?.content;
-                    if (content) {
-                        console.log("OpenRouter Gemma 3 fallback succeeded!");
-                        return content;
+                    if (response.ok) {
+                        const data = await response.json();
+                        const content = data?.choices?.[0]?.message?.content;
+                        if (content) {
+                            console.log("OpenRouter Gemma 3 fallback succeeded!");
+                            return content;
+                        }
                     }
+                } catch (err) {
+                    console.warn(`OpenRouter failed for ${model}:`, err);
                 }
-            } catch (err) {
-                console.warn(`OpenRouter failed for ${model}:`, err);
             }
         }
     }
 
-    if (GROQ_KEY) {
+    // Groq: try all keys × all models
+    if (GROQ_KEYS.length > 0) {
         const groqModels = ["gemma2-9b-it", "llama-3.3-70b-versatile", "mixtral-8x7b-32768"];
-        for (const model of groqModels) {
-            try {
-                console.log(`Trying Groq with model: ${model}...`);
-                const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${GROQ_KEY}`
-                    },
-                    body: JSON.stringify({
-                        model: model,
-                        messages: formattedMessages,
-                        temperature: 0.7
-                    })
-                });
+        for (const key of GROQ_KEYS) {
+            for (const model of groqModels) {
+                try {
+                    console.log(`Trying Groq with model: ${model}...`);
+                    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${key}`
+                        },
+                        body: JSON.stringify({
+                            model: model,
+                            messages: formattedMessages,
+                            temperature: 0.7
+                        })
+                    });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    const content = data?.choices?.[0]?.message?.content;
-                    if (content) {
-                        console.log("Groq fallback succeeded!");
-                        return content;
+                    if (response.ok) {
+                        const data = await response.json();
+                        const content = data?.choices?.[0]?.message?.content;
+                        if (content) {
+                            console.log("Groq fallback succeeded!");
+                            return content;
+                        }
                     }
+                } catch (err) {
+                    console.warn(`Groq failed for ${model}:`, err);
                 }
-            } catch (err) {
-                console.warn(`Groq failed for ${model}:`, err);
             }
         }
     }
 
-    if (CEREBRAS_KEY) {
+    // Cerebras: try all keys × all models
+    if (CEREBRAS_KEYS.length > 0) {
         const cerebrasModels = ["llama3.1-8b", "llama3.1-70b"];
-        for (const model of cerebrasModels) {
-            try {
-                console.log(`Trying Cerebras with model: ${model}...`);
-                const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${CEREBRAS_KEY}`
-                    },
-                    body: JSON.stringify({
-                        model: model,
-                        messages: formattedMessages,
-                        temperature: 0.7
-                    })
-                });
+        for (const key of CEREBRAS_KEYS) {
+            for (const model of cerebrasModels) {
+                try {
+                    console.log(`Trying Cerebras with model: ${model}...`);
+                    const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${key}`
+                        },
+                        body: JSON.stringify({
+                            model: model,
+                            messages: formattedMessages,
+                            temperature: 0.7
+                        })
+                    });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    const content = data?.choices?.[0]?.message?.content;
-                    if (content) {
-                        console.log("Cerebras fallback succeeded!");
-                        return content;
+                    if (response.ok) {
+                        const data = await response.json();
+                        const content = data?.choices?.[0]?.message?.content;
+                        if (content) {
+                            console.log("Cerebras fallback succeeded!");
+                            return content;
+                        }
                     }
+                } catch (err) {
+                    console.warn(`Cerebras failed for ${model}:`, err);
                 }
-            } catch (err) {
-                console.warn(`Cerebras failed for ${model}:`, err);
             }
         }
     }

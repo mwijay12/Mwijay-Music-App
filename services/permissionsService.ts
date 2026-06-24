@@ -2,6 +2,8 @@ import { Capacitor } from '@capacitor/core'
 import { Camera } from '@capacitor/camera'
 import { Geolocation } from '@capacitor/geolocation'
 import { LocalNotifications } from '@capacitor/local-notifications'
+import { Filesystem } from '@capacitor/filesystem'
+import MediaControl from '../plugins/MediaControl'
 
 export type PermissionType = 
   | 'camera' 
@@ -68,8 +70,27 @@ class PermissionsService {
           return this.checkMicrophone()
         
         case 'storage':
-          // Storage is auto-granted on modern Android via modern Capacitor Filesystem plugins
-          return { granted: true, denied: false, restricted: false }
+          try {
+            if (Capacitor.isNativePlatform()) {
+              const status = await MediaControl.getMediaPermissionsStatus();
+              const isAndroid13 = (status as any).media !== undefined;
+              const isGranted = isAndroid13 ? (status.media === 'granted') : (status.storage === 'granted');
+              const isDenied = isAndroid13 ? (status.media === 'denied') : (status.storage === 'denied');
+              return {
+                granted: isGranted,
+                denied: isDenied,
+                restricted: false,
+              };
+            }
+            const storageStatus = await Filesystem.checkPermissions()
+            return {
+              granted: storageStatus.publicStorage === 'granted',
+              denied: storageStatus.publicStorage === 'denied',
+              restricted: false,
+            }
+          } catch {
+            return { granted: false, denied: false, restricted: false }
+          }
         
         default:
           return { granted: false, denied: false, restricted: false }
@@ -125,7 +146,34 @@ class PermissionsService {
           return this.requestMicrophone()
         
         case 'storage':
-          return { granted: true, denied: false, restricted: false }
+          try {
+            if (Capacitor.isNativePlatform()) {
+              const status = await MediaControl.requestMediaPermissions();
+              const isAndroid13 = (status as any).media !== undefined;
+              const isGranted = isAndroid13 ? (status.media === 'granted') : (status.storage === 'granted');
+              const isDenied = isAndroid13 ? (status.media === 'denied') : (status.storage === 'denied');
+              return {
+                granted: isGranted,
+                denied: isDenied,
+                restricted: false,
+                message: 'Media and Storage access needed to discover offline music files',
+              };
+            }
+            const storageResult = await Filesystem.requestPermissions()
+            return {
+              granted: storageResult.publicStorage === 'granted',
+              denied: storageResult.publicStorage === 'denied',
+              restricted: false,
+              message: 'Storage access needed to discover offline music files',
+            }
+          } catch (e) {
+            return {
+              granted: false,
+              denied: true,
+              restricted: false,
+              message: String(e),
+            }
+          }
         
         default:
           return { granted: false, denied: false, restricted: false }

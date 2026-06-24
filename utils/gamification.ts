@@ -2,11 +2,11 @@ import type { ProfileData } from '../types.ts';
 
 /**
  * Returns the cumulative XP required to reach a specific level.
- * Formula: 100 * level^1.5
+ * Formula: 100 * level^2
  */
 export const getXpForLevel = (level: number): number => {
     if (level <= 1) return 0;
-    return Math.floor(100 * Math.pow(level, 1.5));
+    return Math.floor(100 * Math.pow(level, 2));
 };
 
 /**
@@ -46,12 +46,16 @@ export const getTitleForLevel = (level: number): string => {
 
 export const getLevelRewards = (level: number): string[] => {
     const rewards: string[] = [];
-    if (level >= 5) rewards.push("Custom Emoji Profile Avatars 🥺");
-    if (level >= 10) rewards.push("Premium Theme Shaders (Glassmorphism)");
-    if (level >= 20) rewards.push("Full Sleep-Timer Freezes");
-    if (level >= 30) rewards.push("AI Radio Host Custom Voices");
-    if (level >= 50) rewards.push("Music DNA Custom Color Grading");
-    if (level >= 100) rewards.push("The Ultimate GOAT Golden Halo Badge 👑");
+    if (level === 5) rewards.push("Custom Emoji Profile Avatars 🥺");
+    if (level === 10) rewards.push("Premium Theme Shaders (Glassmorphism)");
+    if (level === 20) rewards.push("Full Sleep-Timer Freezes");
+    if (level === 30) rewards.push("AI Radio Host Custom Voices");
+    if (level === 50) rewards.push("Music DNA Custom Color Grading");
+    if (level === 60) rewards.push("Vibrant Neon Visualizer Modes 🌌");
+    if (level === 70) rewards.push("High-Fidelity Audio Preamp Boosts 🔊");
+    if (level === 80) rewards.push("Ultimate Particle Customization Controls 🎇");
+    if (level === 90) rewards.push("Interactive DJ Session Audio Customizer 🎛️");
+    if (level === 100) rewards.push("The Ultimate GOAT Golden Halo Badge 👑");
     return rewards;
 };
 
@@ -204,7 +208,11 @@ export const addXpClientSide = (
 
     if (levelUp && onLevelUp) {
         const rewards = getLevelRewards(newLevel);
-        onLevelUp(newLevel, rewards);
+        const titleChanged = getTitleForLevel(newLevel) !== getTitleForLevel(currentLevel);
+        // Only trigger the level up notification/speech if they unlocked rewards or changed rank title
+        if (rewards.length > 0 || titleChanged) {
+            onLevelUp(newLevel, rewards);
+        }
     }
 
     console.log(`[XP Awarded] +${amount} XP for: "${reason}". Total XP: ${newXp}. Level: ${newLevel}`);

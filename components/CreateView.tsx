@@ -162,17 +162,20 @@ const CreateView: React.FC<CreateViewProps> = ({ librarySongs, showNotification,
                         const generatorInstance = new GoogleGenAI({ apiKey: activeKey });
                         const response = await generatorInstance.models.generateContent({
                             model: 'gemini-2.5-flash',
-                            contents: `Write professional song lyrics based on this request: "${lyricsPrompt}". 
+                            contents: `Write professional, highly creative, and emotionally evocative song lyrics based on this request: "${lyricsPrompt}". 
                             
-                            CRITICAL INSTRUCTION: Return the 'lyrics' with clear line breaks (\\n) and stanza breaks (\\n\\n). Do NOT write the lyrics as a single paragraph. Label sections like [Verse], [Chorus]. Ensure proper spacing between sections.`,
+                            If the request implies Swahili, Bongo Flava, Singeli, or East African Afro-pop themes, employ authentic regional Swahili slang (miseemo), poetic wordplay, and deep cultural metaphors with perfect rhythmic flow.
+                            If the request is in English, write with exquisite poetic metaphors, emotional depth, and catchy hook syncopation.
+                            
+                            CRITICAL INSTRUCTION: Return the 'lyrics' with clear line breaks (\\n) and stanza breaks (\\n\\n). Do NOT write the lyrics as a single block or paragraph. Label sections clearly like [Verse 1], [Chorus], [Verse 2], [Bridge], [Outro]. Ensure proper spacing. Break down the production and arrangement notes into a detailed breakdown of instrumentation, BPM, vocal delivery, and beat drops under 'productionNotes'.`,
                             config: {
-                                systemInstruction: "You are an expert songwriter. Format lyrics cleanly with proper line breaks and stanza spacing. Return valid JSON.",
+                                systemInstruction: "You are an award-winning, master songwriter and poetic genius, legendary in Bongo Flava, Afro-fusion, Singeli, and East African storytelling. You write lyrics with deep cultural resonance, evocative imagery, intricate wordplay, rhyme schemes, and rich metaphors rather than shallow or literal lines. Format lyrics cleanly with proper line breaks and stanza spacing. Return valid JSON.",
                                 responseMimeType: 'application/json',
                                 responseSchema: {
                                     type: Type.OBJECT,
                                     properties: {
                                         lyrics: { type: Type.STRING, description: "The lyrics of the song, formatted with \\n for line breaks and \\n\\n for new stanzas." },
-                                        productionNotes: { type: Type.STRING, description: "Detailed production and arrangement notes." }
+                                        productionNotes: { type: Type.STRING, description: "Detailed production and arrangement notes, outlining BPM, instruments, beat drops, and vocal delivery details." }
                                     },
                                     required: ["lyrics", "productionNotes"]
                                 }

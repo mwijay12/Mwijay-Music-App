@@ -356,25 +356,25 @@ async def analyze_lyrics(req: AnalyzeRequest):
     genai.configure(api_key=primary_key)
     model = genai.GenerativeModel('gemini-1.5-flash')
     
-    prompt = f"""Analyze these song lyrics and return ONLY valid JSON.
+    prompt = f"""You are a senior musicologist, expert lyricist, and premium music critic specializing in East African music, Bongo Flava, and global lyricism. Perform a deep, high-fidelity, and serious semantic lyric analysis.
 
 Song: "{req.title}" by {req.artist}
 
 Lyrics:
 {req.lyrics}
 
-Return JSON in this exact format:
-{{
-  "theme": "Main theme in 3-5 words",
-  "mood": "Overall mood/emotion in 2-3 words",
-  "meaning": "What the song is about in 2 sentences, simple English",
-  "key_lines": ["3 most impactful lyrics from the song"],
-  "emotions": ["list", "of", "emotions", "in", "the", "song"],
-  "story": "Tell the story of the song in 3 sentences, easy to understand",
-  "metaphors": ["any notable metaphors or wordplay if present"]
-}}
+Analyze the poetic structure, literary themes, and Swahili cultural motifs (such as miseemo, methali, or local slang if Swahili). Return ONLY valid JSON in this exact format:
+{
+  "theme": "Core underlying theme in 3-6 words, highly precise",
+  "mood": "Atmosphere and emotional state in 2-3 words",
+  "meaning": "A deep, sophisticated, and insightful explanation of the song's core message, cultural relevance, and artistic significance (3-4 sentences).",
+  "key_lines": ["3 most impactful lyrics (with original Swahili/slang if applicable) along with a very brief explanation of their poetic weight"],
+  "emotions": ["list", "of", "specific", "nuanced", "emotions", "evoked"],
+  "story": "A rich narrative summary outlining the lyric journey, character arcs, and thematic resolution of the song (3-4 sentences).",
+  "metaphors": ["Detailed breakdowns of notable metaphors, Swahili double entendres (miseemo), wordplay, or cultural idioms decoded with scholarly precision"]
+}
 
-Use simple English. Be insightful but concise.
+Be insightful, deep, and poetic. Do NOT make simple grade-school summaries.
 Return ONLY the JSON, no other text. Do NOT use markdown code blocks or backticks."""
     
     try:
@@ -416,15 +416,15 @@ async def explain_line(req: ExplainLineRequest):
     genai.configure(api_key=primary_key)
     model = genai.GenerativeModel('gemini-1.5-flash')
     
-    prompt = f"""Explain this lyric line in simple English.
+    prompt = f"""You are a professional musicologist, literary expert, and cultural specialist in Swahili poetry and global lyricism. Explain the deep hidden meaning, double entendre, Swahili cultural context, or metaphor of this specific line with immense precision and poetic beauty.
 
 Artist: {req.artist}
 Line: "{req.line}"
 Song context: {req.context}
 
-Give a brief 2-3 sentence explanation of what this line means.
-Focus on the meaning, emotion, or wordplay.
-Use simple English."""
+Provide a deep, sophisticated, and highly insightful 3-4 sentence musicological critique of what this line truly signifies. 
+If the line contains Swahili idioms (miseemo), Tanzanian slang, or regional metaphors, explain the deep cultural subtext and decode its meaning elegantly.
+Be insightful and serious. Avoid grade-school simplifications."""
     
     try:
         response = model.generate_content(prompt)

@@ -100,9 +100,9 @@ class MediaSessionService {
       return `${window.location.origin}/favicon.ico`;
     }
 
-    // Cloudinary: e.g. https://res.cloudinary.com/.../upload/v123/photo.jpg
-    if (url.includes('cloudinary.com') && url.includes('/upload/')) {
-      return url.replace('/upload/', `/upload/w_${size},h_${size},c_fill,f_jpg/`);
+    // R2 / S3-compatible storage: no server-side image transforms, return as-is
+    if (url.includes('r2.dev') || url.includes('r2.cloudflarestorage.com')) {
+      return url;
     }
 
     // iTunes/Apple Music: e.g. …100x100bb.jpg
@@ -186,6 +186,16 @@ class MediaSessionService {
       navigator.mediaSession.playbackState = state;
     } catch { /* ignore */ }
 
+    // Android 15 requires an immediate position state update when
+    // playback state changes — do it before starting the interval
+    if (state !== 'none' && this.audioElement) {
+      this.updatePositionState(
+        this.audioElement.currentTime,
+        this.audioElement.duration,
+        this.audioElement.playbackRate
+      );
+    }
+
     if (state === 'playing') {
       this.startPositionUpdates();
     } else {
@@ -193,25 +203,33 @@ class MediaSessionService {
     }
   }
 
-  /** Poll the audio element's position every second and push to OS seek bar. */
+  /** Poll the audio element's position and push to OS seek bar (500ms for smooth Android 15). */
   startPositionUpdates() {
     this.stopPositionUpdates();
 
     this.positionUpdateInterval = window.setInterval(() => {
       if (!this.audioElement || !this.isSupported) return;
       const dur = this.audioElement.duration;
-      if (!isFinite(dur) || dur <= 0) return;
+      const pos = this.audioElement.currentTime;
+      const rate = this.audioElement.playbackRate;
 
-      try {
-        navigator.mediaSession.setPositionState({
-          duration:     dur,
-          playbackRate: this.audioElement.playbackRate || 1,
-          position:     Math.min(this.audioElement.currentTime, dur),
-        });
-      } catch {
-        // setPositionState can throw if duration is NaN on initial load
+      // Validated values to avoid setPositionState throwing on Android 15
+      const safeDuration = isFinite(dur) && dur > 0 ? dur : 0;
+      const safePosition = isFinite(pos) ? Math.min(Math.max(0, pos), safeDuration) : 0;
+      const safeRate = isFinite(rate) && rate > 0 ? rate : 1;
+
+      if (safeDuration > 0) {
+        try {
+          navigator.mediaSession.setPositionState({
+            duration: safeDuration,
+            playbackRate: safeRate,
+            position: safePosition,
+          });
+        } catch {
+          // Non-fatal — some Android WebViews throw but controls still work
+        }
       }
-    }, 1000);
+    }, 500);
   }
 
   stopPositionUpdates() {
@@ -228,16 +246,26 @@ class MediaSessionService {
     // This stub exists for forward-compatibility.
   }
 
-  /** Force-push the current position state (called on seek). */
+  /** Force-push the current position state (called on seek and playback state change). */
   updatePositionState(position: number, duration: number, playbackRate = 1) {
-    if (!this.isSupported || !isFinite(duration) || duration <= 0) return;
-    try {
-      navigator.mediaSession.setPositionState({
-        duration,
-        playbackRate,
-        position: Math.min(position, duration),
-      });
-    } catch { /* ignore */ }
+    if (!this.isSupported) return;
+
+    // Full validation for Android 15 compatibility
+    const safeDuration = isFinite(duration) && duration > 0 ? duration : 0;
+    const safePosition = isFinite(position) ? Math.min(Math.max(0, position), safeDuration) : 0;
+    const safeRate = isFinite(playbackRate) && playbackRate > 0 ? playbackRate : 1;
+
+    if (safeDuration > 0) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: safeDuration,
+          playbackRate: safeRate,
+          position: safePosition,
+        });
+      } catch {
+        // Non-fatal — some Android WebViews throw on invalid values
+      }
+    }
   }
 
   /** Tear down all handlers and intervals. Call on app unmount. */

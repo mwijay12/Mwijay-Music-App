@@ -100,6 +100,13 @@ export interface ReelPlaylist {
     videoIds: string[];
 }
 
+export interface SpeedPreset {
+    rate: number;
+    label: string;
+    emoji: string;
+    shortLabel: string;
+}
+
 export interface RadioStation {
     stationuuid: string;
     name: string;

@@ -1,7 +1,7 @@
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile as firebaseUpdateProfile } from 'firebase/auth';
 import { db, auth } from './firebase.ts';
-import { uploadToCloudinary } from './cloudinaryService.ts';
+import { uploadToR2 } from './r2Service.ts';
 import type { ProfileData } from '../types.ts';
 
 export const profileService = {
@@ -36,8 +36,8 @@ export const profileService = {
    */
   uploadAvatar: async (userId: string, fileOrBlob: File | Blob): Promise<string> => {
     // 1. Upload directly to Cloudinary
-    const cloudinaryResponse = await uploadToCloudinary(fileOrBlob);
-    const secureUrl = cloudinaryResponse.secure_url;
+    const uploadResponse = await uploadToR2(fileOrBlob);
+    const secureUrl = uploadResponse.secure_url;
 
     // 2. Save secure url to Firebase Auth
     if (auth.currentUser) {

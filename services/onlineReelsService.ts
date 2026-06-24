@@ -1,4 +1,6 @@
 import type { Video } from '../types.ts';
+import { db } from './firebase.ts';
+import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 
 // ── GUARANTEED WORKING SAMPLE VIDEOS ──────────────────────────────
 const SAMPLE_VIDEOS: Video[] = [
@@ -77,10 +79,20 @@ class OnlineReelsService {
   /**
    * Get trending/default reels. Always returns something.
    */
-  async getTrending(query = ''): Promise<Video[]> {
+  async getTrending(searchQuery = ''): Promise<Video[]> {
+    let adminReels: Video[] = [];
+    try {
+      if (navigator.onLine) {
+        const snap = await getDocs(query(collection(db, 'admin_reels'), orderBy('createdAt', 'desc')));
+        adminReels = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Video));
+      }
+    } catch (e) {
+      console.warn('[OnlineReels] Failed to fetch admin reels from Firestore:', e);
+    }
+
     const results = await Promise.allSettled([
-      this.searchInternetArchive(query || 'music short film'),
-      this.searchWikimedia(query || 'music'),
+      this.searchInternetArchive(searchQuery || 'music short film'),
+      this.searchWikimedia(searchQuery || 'music'),
     ]);
 
     const videos: Video[] = [];
@@ -90,12 +102,13 @@ class OnlineReelsService {
       }
     }
 
-    if (videos.length === 0) {
+    if (videos.length === 0 && adminReels.length === 0) {
       console.warn('[OnlineReels] All sources failed — using built-in samples');
-      return this.getSamples(query);
+      return this.getSamples(searchQuery);
     }
 
-    return this.shuffle([...videos, ...SAMPLE_VIDEOS.slice(0, 2)]);
+    // Prepend admin-uploaded reels at the top, followed by shuffled online search results
+    return [...adminReels, ...this.shuffle([...videos, ...SAMPLE_VIDEOS])];
   }
 
   // ── INTERNET ARCHIVE ────────────────────────────────────────────
@@ -109,7 +122,7 @@ class OnlineReelsService {
         q: baseQuery,
         'fl[]': 'identifier,title,creator,downloads',
         sort: 'downloads desc',
-        rows: '12',
+        rows: '30',
         output: 'json',
       });
 
@@ -123,8 +136,8 @@ class OnlineReelsService {
       const docs: any[] = data.response?.docs || [];
       if (docs.length === 0) return [];
 
-      // Fetch file listings in parallel (max 6 to avoid rate limiting)
-      const videoPromises = docs.slice(0, 6).map(doc => this.resolveArchiveVideo(doc));
+      // Fetch file listings in parallel (max 15 to avoid rate limiting)
+      const videoPromises = docs.slice(0, 15).map(doc => this.resolveArchiveVideo(doc));
       const resolved = await Promise.allSettled(videoPromises);
 
       return resolved
@@ -177,7 +190,7 @@ class OnlineReelsService {
         list: 'search',
         srsearch: `${query} filetype:video`,
         srnamespace: '6',
-        srlimit: '8',
+        srlimit: '25',
         origin: '*',
       });
 
@@ -191,7 +204,7 @@ class OnlineReelsService {
       const items: any[] = data.query?.search || [];
       if (items.length === 0) return [];
 
-      const infoPromises = items.slice(0, 5).map(item => this.resolveWikimediaVideo(item));
+      const infoPromises = items.slice(0, 15).map(item => this.resolveWikimediaVideo(item));
       const resolved = await Promise.allSettled(infoPromises);
 
       return resolved

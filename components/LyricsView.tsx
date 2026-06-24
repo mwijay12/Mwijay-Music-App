@@ -8,7 +8,7 @@ import { getPremiumGradientCover } from '../utils/helpers.ts';
 import { useInterruptibleScroll } from '../hooks/useInterruptibleScroll.ts';
 import TranscriptionView from './TranscriptionView.tsx';
 import { LyricsAnalysis } from './LyricsAnalysis.tsx';
-import { analyzeMedia } from '../services/geminiService.ts';
+import { aiService } from '../services/aiService.ts';
 import { motion } from 'framer-motion';
 
 interface LyricsViewProps {
@@ -547,7 +547,7 @@ ${notesText || 'No notes taken.'}
             }
 
             const mediaInput = isRadio ? { audio: { audioUrl: song.url } } : { audio: { base64: base64Data, mimeType: song.mimeType } };
-            const result = await analyzeMedia(mediaInput as any, {});
+            const result = await aiService.analyzeMedia(mediaInput as any, {});
             
             // Format segments into lyrics-like text
             const formattedLyrics = result.segments.map((s: any) => `[${s.timestamp}] ${s.content}`).join('\n');

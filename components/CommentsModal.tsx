@@ -76,7 +76,7 @@ const CommentsModal: React.FC<CommentsModalProps> = ({ video, profile, onClose, 
                 <div className="flex-1 p-4 overflow-y-auto space-y-4 scroll-container">
                     {(video.comments || []).map(comment => (
                         <div key={comment.id} className="flex items-start gap-3">
-                            <img src={comment.userAvatar} alt={comment.userName} className="w-10 h-10 rounded-full object-cover" />
+                            <img src={comment.userAvatar} referrerPolicy="no-referrer" alt={comment.userName} className="w-10 h-10 rounded-full object-cover" />
                             <div className="flex-1">
                                 <div className="bg-white/10 rounded-lg p-3">
                                     <div className="flex items-baseline gap-2">
@@ -113,7 +113,7 @@ const CommentsModal: React.FC<CommentsModalProps> = ({ video, profile, onClose, 
                 </div>
                 
                 <footer className="p-4 border-t border-white/10 flex-shrink-0 flex items-start gap-3">
-                    <img src={profile.avatarUrl} alt={profile.name} className="w-10 h-10 rounded-full object-cover"/>
+                    <img src={profile.avatarUrl} referrerPolicy="no-referrer" alt={profile.name} className="w-10 h-10 rounded-full object-cover"/>
                     <div className="flex-1">
                          <textarea
                             ref={textareaRef}

@@ -7,7 +7,8 @@ import VisualizerModal from './VisualizerModal.tsx';
 import WisdomCardView from './WisdomCardView.tsx';
 import Visualizer from './Visualizer.tsx';
 import TranscriptionView from './TranscriptionView.tsx';
-import AudioFxModal from './AudioFxModal.tsx';
+import EqualizerModal from './EqualizerModal.tsx';
+import SpeedControlModal from './SpeedControlModal.tsx';
 import { fetchFromJamendo, fetchFromArchive } from './db.ts';
 import { motion, PanInfo, AnimatePresence } from 'framer-motion';
 import { 
@@ -16,7 +17,7 @@ import {
     Clock, Download, Mic2, Share2, Smile, ListMusic, Wand2,
     PenLine, Settings2, Shuffle, Users, X
 } from 'lucide-react';
-import { analyzeMedia } from '../services/geminiService.ts';
+import { aiService } from '../services/aiService.ts';
 import { ImpactStyle } from '@capacitor/haptics';
 import { getRandomCoverArt, fonts } from './constants.ts';
 import { useInterruptibleScroll } from '../hooks/useInterruptibleScroll.ts';
@@ -265,7 +266,7 @@ export const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
         }
     };
 
-    const [activeModal, setActiveModal] = useState<'sleep' | 'visualizer' | 'audiofx' | null>(null);
+    const [activeModal, setActiveModal] = useState<'sleep' | 'visualizer' | 'audiofx' | 'speed' | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [showSyncedLyrics, setShowSyncedLyrics] = useState(false);
     const [backgroundMode, setBackgroundMode] = useState<'gradient' | 'album' | 'black'>('gradient');
@@ -302,7 +303,7 @@ export const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
             }
 
             const mediaInput = isLive ? { audio: { audioUrl: song.url } } : { audio: { base64: base64Data, mimeType: song.mimeType } };
-            const result = await analyzeMedia(mediaInput as any, {});
+            const result = await aiService.analyzeMedia(mediaInput as any, {});
             
             // Update the song in the queue
             const updatedSong = { ...song, transcription: result };
@@ -702,7 +703,7 @@ export const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
                 <main className="flex-1 flex flex-col items-center justify-center p-2 lg:p-0 relative w-full h-full lg:max-h-none overflow-hidden">
                     <div className="flex flex-col items-center w-full">
                             <div 
-                                className="relative w-full aspect-square max-w-[200px] sm:max-w-[240px] lg:max-w-md mx-auto shadow-2xl rounded-[2.5rem] lg:rounded-[3rem] overflow-hidden border border-white/10"
+                                className="relative w-full aspect-square max-w-[280px] sm:max-w-[320px] lg:max-w-md mx-auto shadow-2xl rounded-[2.5rem] lg:rounded-[3rem] overflow-hidden border border-white/10"
                                 onTouchStart={handleTouchStart}
                                 onTouchMove={handleTouchMove}
                                 onTouchEnd={handleTouchEnd}
@@ -847,6 +848,14 @@ export const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
                                         title="Mood Emoji"
                                     >
                                         <Smile size={22} />
+                                    </button>
+
+                                    <button 
+                                        onClick={() => setActiveModal('visualizer')} 
+                                        className="p-1.5 transition-transform active:scale-95 text-white/60 hover:text-white"
+                                        title="Visualizer Mode"
+                                    >
+                                        <Paintbrush size={22} />
                                     </button>
                                 </div>
                             </div>
@@ -1252,12 +1261,17 @@ export const PlayerOverlay: React.FC<PlayerOverlayProps> = ({
 
         {activeModal === 'sleep' && <SleepTimerModal onClose={() => setActiveModal(null)} onSetTimer={onSetSleepTimer} activeTimer={sleepTimer} />}
         {activeModal === 'visualizer' && <VisualizerModal onClose={() => setActiveModal(null)} profile={profile} onUpdateProfile={onUpdateProfile} />}
-        <AudioFxModal 
-            isOpen={activeModal === 'audiofx'} 
-            onClose={() => setActiveModal(null)} 
-            profile={profile} 
-            onUpdateSettings={(settings) => onUpdateProfile(prev => ({ ...prev, settings: { ...prev.settings, ...settings } }))}
-        />
+        {activeModal === 'speed' && <SpeedControlModal isOpen={true} onClose={() => setActiveModal(null)} />}
+        {song && activeModal === 'audiofx' && (
+            <EqualizerModal 
+                profile={profile} 
+                song={song}
+                onClose={() => setActiveModal(null)} 
+                onUpdateProfile={onUpdateProfile}
+                onUpdateSong={(updated) => setPlayQueue(prev => prev.map(s => s.id === updated.id ? updated : s))}
+                showNotification={showNotification}
+            />
+        )}
         </>
     );
 };

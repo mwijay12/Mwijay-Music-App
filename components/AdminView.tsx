@@ -3,15 +3,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield, Sparkles, Trophy, Zap, Database, RefreshCw, ChevronLeft,
   Award, Activity, Bug, Settings, ToggleLeft, ToggleRight, AlertTriangle,
-  Users, Music, Clock, Flame, Eye, Trash2, Upload, Bell, Image, Megaphone, CheckCircle, X
+  Users, Music, Clock, Flame, Eye, Trash2, Upload, Bell, Image, Megaphone, CheckCircle, X, Film, Star
 } from 'lucide-react';
 import type { ProfileData, Song, Playlist } from '../types.ts';
 import { remoteConfig, type AppConfig } from '../services/remoteConfigService.ts';
 import { crashReporter, type CrashReport } from '../services/crashReportService.ts';
 import { useRemoteConfig } from '../hooks/useRemoteConfig.ts';
 import { db, auth } from '../services/firebase.ts';
-import { collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp, orderBy, query } from 'firebase/firestore';
-import { uploadToCloudinary } from '../services/cloudinaryService.ts';
+import { collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp, orderBy, query, updateDoc } from 'firebase/firestore';
+import { uploadToR2 } from '../services/r2Service.ts';
+import { adminSongsService } from '../services/adminSongsService.ts';
+import R2UploadModal from './admin/R2UploadModal';
 
 interface AdminViewProps {
   onBack: () => void;
@@ -100,16 +102,42 @@ const AdminView: React.FC<AdminViewProps> = ({ onBack, profile, librarySongs, pl
 
   // Content upload state
   const [uploadedSongs, setUploadedSongs] = useState<any[]>([]);
+  const [uploadedReels, setUploadedReels] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [isUploadingSong, setIsUploadingSong] = useState(false);
+  const [isUploadingReel, setIsUploadingReel] = useState(false);
   const [isPostingAnnouncement, setIsPostingAnnouncement] = useState(false);
   const [songForm, setSongForm] = useState({ title: '', artist: '', description: '' });
+  const [reelForm, setReelForm] = useState({ title: '', uploader: '', description: '' });
   const [announcementForm, setAnnouncementForm] = useState({ title: '', message: '', type: 'info' });
   const [songAudioFile, setSongAudioFile] = useState<File | null>(null);
   const [songCoverFile, setSongCoverFile] = useState<File | null>(null);
   const [songCoverPreview, setSongCoverPreview] = useState<string | null>(null);
+  const [reelVideoFile, setReelVideoFile] = useState<File | null>(null);
+  const [reelCoverFile, setReelCoverFile] = useState<File | null>(null);
+  const [reelCoverPreview, setReelCoverPreview] = useState<string | null>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const reelVideoInputRef = useRef<HTMLInputElement>(null);
+  const reelCoverInputRef = useRef<HTMLInputElement>(null);
+
+  // Moderation state variables
+  const [reelRequests, setReelRequests] = useState<any[]>([]);
+  const [moderatingRequestId, setModeratingRequestId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [previewVideoId, setPreviewVideoId] = useState<string | null>(null);
+
+  // R2 upload modal state
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadFolder, setUploadFolder] = useState<'songs' | 'reels' | 'covers'>('songs');
+  const [pendingR2Meta, setPendingR2Meta] = useState<{ fileUrl: string; fileName: string } | null>(null);
+  const [r2MetaForm, setR2MetaForm] = useState({ title: '', artist: '', description: '' });
+  const [savingMeta, setSavingMeta] = useState(false);
+  const [saveMetaError, setSaveMetaError] = useState<string | null>(null);
+  const [coverArtFile, setCoverArtFile] = useState<File | null>(null);
+  const [coverArtPreview, setCoverArtPreview] = useState<string | null>(null);
+  const [coverArtUrl, setCoverArtUrl] = useState<string>('');
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   const mockUsers = [
     { name: 'David Mwijage (Owner)', email: 'davidbyanmwijage@gmail.com', role: 'Owner / Admin', status: 'Active', tier: 'Pro' },
@@ -142,10 +170,64 @@ const AdminView: React.FC<AdminViewProps> = ({ onBack, profile, librarySongs, pl
     try {
       const songsSnap = await getDocs(query(collection(db, 'admin_songs'), orderBy('createdAt', 'desc')));
       setUploadedSongs(songsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const reelsSnap = await getDocs(query(collection(db, 'admin_reels'), orderBy('createdAt', 'desc')));
+      setUploadedReels(reelsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       const annSnap = await getDocs(query(collection(db, 'announcements'), orderBy('createdAt', 'desc')));
       setAnnouncements(annSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      
+      const requestsSnap = await getDocs(query(collection(db, 'reel_requests'), orderBy('createdAt', 'desc')));
+      setReelRequests(requestsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (err) {
       console.warn('Failed to load admin content:', err);
+    }
+  };
+
+  const handleApproveReelRequest = async (request: any) => {
+    try {
+      showNotification('Approving and publishing reel...', 'info');
+      
+      const reelDoc = {
+        title: request.title,
+        uploader: request.uploader,
+        description: request.description || '',
+        url: request.url,
+        thumbnailUrl: request.thumbnailUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(request.title)}&background=ff006e&color=fff&size=400`,
+        source: `User Upload (${request.requestedBy})`,
+        uploadedBy: request.requestedBy,
+        createdAt: serverTimestamp(),
+      };
+      await addDoc(collection(db, 'admin_reels'), reelDoc);
+      
+      await updateDoc(doc(db, 'reel_requests', request.id), {
+        status: 'approved',
+      });
+      
+      showNotification(`"${request.title}" reel approved & published live! 🎬`, 'success');
+      loadUploadedContent();
+    } catch (err) {
+      console.error('Failed to approve request:', err);
+      showNotification('Failed to approve reel.', 'error');
+    }
+  };
+
+  const handleRejectReelRequest = async () => {
+    if (!moderatingRequestId) return;
+    if (!rejectReason.trim()) {
+      showNotification('Please enter a rejection comment/reason!', 'error');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'reel_requests', moderatingRequestId), {
+        status: 'rejected',
+        adminComment: rejectReason,
+      });
+      showNotification('Reel request rejected & comment saved.', 'success');
+      setModeratingRequestId(null);
+      setRejectReason('');
+      loadUploadedContent();
+    } catch (err) {
+      console.error('Failed to reject request:', err);
+      showNotification('Failed to reject reel.', 'error');
     }
   };
 
@@ -156,27 +238,22 @@ const AdminView: React.FC<AdminViewProps> = ({ onBack, profile, librarySongs, pl
     }
     setIsUploadingSong(true);
     try {
-      showNotification('Uploading audio to Cloudinary...', 'info');
-      const audioResult = await uploadToCloudinary(songAudioFile);
+      showNotification('Uploading audio to R2...', 'info');
+      const audioResult = await uploadToR2(songAudioFile);
       let coverUrl = '';
       if (songCoverFile) {
         showNotification('Uploading cover art...', 'info');
-        const coverResult = await uploadToCloudinary(songCoverFile);
+        const coverResult = await uploadToR2(songCoverFile);
         coverUrl = coverResult.secure_url;
       }
-      const songDoc = {
+      await adminSongsService.create({
         title: songForm.title,
         artist: songForm.artist,
         description: songForm.description,
         url: audioResult.secure_url,
         duration: audioResult.duration || 0,
         albumArtUrl: coverUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(songForm.title)}&background=9333ea&color=fff&size=400`,
-        source: 'Admin Upload',
-        isAiGenerated: true,
-        uploadedBy: auth.currentUser?.email || 'admin',
-        createdAt: serverTimestamp(),
-      };
-      await addDoc(collection(db, 'admin_songs'), songDoc);
+      });
       showNotification(`"${songForm.title}" uploaded successfully! 🎵`, 'success');
       setSongForm({ title: '', artist: '', description: '' });
       setSongAudioFile(null);
@@ -185,7 +262,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onBack, profile, librarySongs, pl
       loadUploadedContent();
     } catch (err) {
       console.error('Song upload failed:', err);
-      showNotification('Upload failed. Check Cloudinary config.', 'error');
+      showNotification('Upload failed. Check R2 config.', 'error');
     } finally {
       setIsUploadingSong(false);
     }
@@ -217,8 +294,56 @@ const AdminView: React.FC<AdminViewProps> = ({ onBack, profile, librarySongs, pl
 
   const handleDeleteAdminSong = async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'admin_songs', id));
+      await adminSongsService.delete(id);
       showNotification('Song deleted.', 'success');
+      loadUploadedContent();
+    } catch { showNotification('Delete failed', 'error'); }
+  };
+
+  const handleUploadReel = async () => {
+    if (!reelForm.title || !reelForm.uploader || !reelVideoFile) {
+      showNotification('Reel Title, Uploader and video file are required!', 'error');
+      return;
+    }
+    setIsUploadingReel(true);
+    try {
+      showNotification('Uploading video to R2...', 'info');
+      const videoResult = await uploadToR2(reelVideoFile);
+      let coverUrl = '';
+      if (reelCoverFile) {
+        showNotification('Uploading thumbnail cover...', 'info');
+        const coverResult = await uploadToR2(reelCoverFile);
+        coverUrl = coverResult.secure_url;
+      }
+      const reelDoc = {
+        title: reelForm.title,
+        uploader: reelForm.uploader,
+        description: reelForm.description,
+        url: videoResult.secure_url,
+        thumbnailUrl: coverUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(reelForm.title)}&background=ff006e&color=fff&size=400`,
+        source: 'Admin Upload',
+        uploadedBy: auth.currentUser?.email || 'admin',
+        createdAt: serverTimestamp(),
+      };
+      await addDoc(collection(db, 'admin_reels'), reelDoc);
+      showNotification(`"${reelForm.title}" reel uploaded successfully! 🎬`, 'success');
+      setReelForm({ title: '', uploader: '', description: '' });
+      setReelVideoFile(null);
+      setReelCoverFile(null);
+      setReelCoverPreview(null);
+      loadUploadedContent();
+    } catch (err) {
+      console.error('Reel upload failed:', err);
+      showNotification('Upload failed. Check R2 connection.', 'error');
+    } finally {
+      setIsUploadingReel(false);
+    }
+  };
+
+  const handleDeleteAdminReel = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'admin_reels', id));
+      showNotification('Reel deleted.', 'success');
       loadUploadedContent();
     } catch { showNotification('Delete failed', 'error'); }
   };
@@ -347,76 +472,313 @@ const AdminView: React.FC<AdminViewProps> = ({ onBack, profile, librarySongs, pl
           {/* ── CONTENT UPLOAD TAB ── */}
           {activeTab === 'content' && (
             <motion.div key="content" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
-              
-              {/* Upload AI Song */}
-              <div className="liquid-glass-pane p-6 rounded-3xl border border-white/5">
+
+              {/* PRIMARY: Upload to R2 Storage */}
+              <div className="liquid-glass-pane p-6 rounded-3xl border border-[var(--primary-accent)]/30">
                 <h3 className="font-bold text-base mb-4 flex items-center gap-2">
-                  <Music size={16} className="text-[var(--primary-accent)]" />
-                  Upload AI Song
+                  <Upload size={16} className="text-[var(--primary-accent)]" />
+                  Upload to R2 Storage <span className="text-[10px] bg-[var(--primary-accent)]/20 text-[var(--primary-accent)] px-2 py-0.5 rounded-full font-bold">RECOMMENDED</span>
                 </h3>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      placeholder="Song Title"
-                      value={songForm.title}
-                      onChange={e => setSongForm(p => ({ ...p, title: e.target.value }))}
-                      className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Artist Name"
-                      value={songForm.artist}
-                      onChange={e => setSongForm(p => ({ ...p, artist: e.target.value }))}
-                      className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm"
-                    />
-                  </div>
-                  <textarea
-                    placeholder="Description (optional)"
-                    value={songForm.description}
-                    onChange={e => setSongForm(p => ({ ...p, description: e.target.value }))}
-                    rows={2}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm resize-none"
-                  />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
-                      onClick={() => audioInputRef.current?.click()}
-                      className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-colors cursor-pointer ${
-                        songAudioFile ? 'border-green-500/50 bg-green-950/20 text-green-300' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'
-                      }`}
-                    >
-                      <Music size={16} />
-                      {songAudioFile ? songAudioFile.name.slice(0, 20) + '...' : 'Choose Audio File'}
-                    </button>
-                    <button
-                      onClick={() => coverInputRef.current?.click()}
-                      className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-colors cursor-pointer ${
-                        songCoverFile ? 'border-green-500/50 bg-green-950/20 text-green-300' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'
-                      }`}
-                    >
-                      <Image size={16} />
-                      {songCoverFile ? 'Cover Selected ✓' : 'Choose Cover Art'}
-                    </button>
-                  </div>
-                  {songCoverPreview && (
-                    <div className="relative w-24 h-24 rounded-xl overflow-hidden">
-                      <img src={songCoverPreview} alt="Cover preview" className="w-full h-full object-cover" />
-                      <button onClick={() => { setSongCoverFile(null); setSongCoverPreview(null); }} className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center">
-                        <X size={10} />
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    onClick={handleUploadSong}
-                    disabled={isUploadingSong}
-                    className="w-full flex items-center justify-center gap-2 bg-[var(--primary-accent)] text-black font-black py-3 rounded-xl transition-all hover:brightness-110 active:scale-95 disabled:opacity-50 cursor-pointer text-sm"
-                  >
-                    {isUploadingSong ? <RefreshCw size={16} className="animate-spin" /> : <Upload size={16} />}
-                    {isUploadingSong ? 'Uploading...' : 'Upload Song to Firebase'}
+                <p className="text-xs text-neutral-400 mb-4">
+                  Upload directly to Cloudflare R2. Files uploaded here have full CORS support — all Web Audio effects (EQ, Maximizer, Reverb, Voice mods) will work.
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button onClick={() => { setUploadFolder('songs'); setUploadModalOpen(true); }}
+                          className="p-3 bg-neutral-800 hover:bg-neutral-700 rounded-xl text-white text-sm font-medium flex items-center gap-2 justify-center cursor-pointer">
+                    <Upload size={16} />
+                    Songs
+                  </button>
+                  <button onClick={() => { setUploadFolder('reels'); setUploadModalOpen(true); }}
+                          className="p-3 bg-neutral-800 hover:bg-neutral-700 rounded-xl text-white text-sm font-medium flex items-center gap-2 justify-center cursor-pointer">
+                    <Upload size={16} />
+                    Reels
+                  </button>
+                  <button onClick={() => { setUploadFolder('covers'); setUploadModalOpen(true); }}
+                          className="p-3 bg-neutral-800 hover:bg-neutral-700 rounded-xl text-white text-sm font-medium flex items-center gap-2 justify-center cursor-pointer">
+                    <Upload size={16} />
+                    Covers
                   </button>
                 </div>
-                <input ref={audioInputRef} type="file" accept="audio/*" className="hidden" onChange={e => { if (e.target.files?.[0]) setSongAudioFile(e.target.files[0]); }} />
-                <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) { setSongCoverFile(e.target.files[0]); const url = URL.createObjectURL(e.target.files[0]); setSongCoverPreview(url); }}} />
+                <p className="text-[10px] text-neutral-500 mt-3 italic">
+                  After uploading, add metadata (title, artist) via the "Uploaded Songs" list or use the Legacy form below.
+                </p>
+              </div>
+
+              {/* LEGACY: Cloudinary uploads (collapsed) */}
+              <details className="group liquid-glass-pane p-6 rounded-3xl border border-white/5">
+                <summary className="cursor-pointer list-none flex items-center justify-between">
+                  <h3 className="font-bold text-base flex items-center gap-2 text-neutral-400">
+                    <Music size={16} />
+                    Legacy Upload (Cloudinary) <span className="text-[10px] bg-neutral-700/50 text-neutral-400 px-2 py-0.5 rounded-full font-bold">OLD</span>
+                  </h3>
+                  <ChevronLeft size={16} className="text-neutral-500 rotate-90 group-open:-rotate-90 transition-transform" />
+                </summary>
+                <div className="space-y-6 mt-4">
+
+                  {/* Upload AI Song (Legacy) */}
+                  <div className="p-4 rounded-2xl border border-white/5 bg-white/5">
+                    <h4 className="font-semibold text-sm mb-4 flex items-center gap-2">
+                      <Music size={14} className="text-neutral-400" />
+                      Upload AI Song (stores to R2, but old flow)
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          placeholder="Song Title"
+                          value={songForm.title}
+                          onChange={e => setSongForm(p => ({ ...p, title: e.target.value }))}
+                          className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Artist Name"
+                          value={songForm.artist}
+                          onChange={e => setSongForm(p => ({ ...p, artist: e.target.value }))}
+                          className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm"
+                        />
+                      </div>
+                      <textarea
+                        placeholder="Description (optional)"
+                        value={songForm.description}
+                        onChange={e => setSongForm(p => ({ ...p, description: e.target.value }))}
+                        rows={2}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm resize-none"
+                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                          onClick={() => audioInputRef.current?.click()}
+                          className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-colors cursor-pointer ${
+                            songAudioFile ? 'border-green-500/50 bg-green-950/20 text-green-300' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'
+                          }`}
+                        >
+                          <Music size={16} />
+                          {songAudioFile ? songAudioFile.name.slice(0, 20) + '...' : 'Choose Audio File'}
+                        </button>
+                        <button
+                          onClick={() => coverInputRef.current?.click()}
+                          className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-colors cursor-pointer ${
+                            songCoverFile ? 'border-green-500/50 bg-green-950/20 text-green-300' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'
+                          }`}
+                        >
+                          <Image size={16} />
+                          {songCoverFile ? 'Cover Selected ✓' : 'Choose Cover Art'}
+                        </button>
+                      </div>
+                      {songCoverPreview && (
+                        <div className="relative w-24 h-24 rounded-xl overflow-hidden">
+                          <img src={songCoverPreview} alt="Cover preview" className="w-full h-full object-cover" />
+                          <button onClick={() => { setSongCoverFile(null); setSongCoverPreview(null); }} className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center">
+                            <X size={10} />
+                          </button>
+                        </div>
+                      )}
+                      <button
+                        onClick={handleUploadSong}
+                        disabled={isUploadingSong}
+                        className="w-full flex items-center justify-center gap-2 bg-[var(--primary-accent)] text-black font-black py-3 rounded-xl transition-all hover:brightness-110 active:scale-95 disabled:opacity-50 cursor-pointer text-sm"
+                      >
+                        {isUploadingSong ? <RefreshCw size={16} className="animate-spin" /> : <Upload size={16} />}
+                        {isUploadingSong ? 'Uploading...' : 'Upload Song to R2 & Firebase'}
+                      </button>
+                    </div>
+                    <input ref={audioInputRef} type="file" accept="audio/*" className="hidden" onChange={e => { if (e.target.files?.[0]) setSongAudioFile(e.target.files[0]); }} />
+                    <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) { setSongCoverFile(e.target.files[0]); const url = URL.createObjectURL(e.target.files[0]); setSongCoverPreview(url); }}} />
+                  </div>
+
+                  {/* Upload Admin Reel (Legacy) */}
+                  <div className="p-4 rounded-2xl border border-white/5 bg-white/5">
+                    <h4 className="font-semibold text-sm mb-4 flex items-center gap-2">
+                      <Film size={14} className="text-neutral-400" />
+                      Upload Admin Reel (stores to R2, but old flow)
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          placeholder="Reel Title"
+                          value={reelForm.title}
+                          onChange={e => setReelForm(p => ({ ...p, title: e.target.value }))}
+                          className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Uploader / Artist Name"
+                          value={reelForm.uploader}
+                          onChange={e => setReelForm(p => ({ ...p, uploader: e.target.value }))}
+                          className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm"
+                        />
+                      </div>
+                      <textarea
+                        placeholder="Description (optional)"
+                        value={reelForm.description}
+                        onChange={e => setReelForm(p => ({ ...p, description: e.target.value }))}
+                        rows={2}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm resize-none"
+                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                          onClick={() => reelVideoInputRef.current?.click()}
+                          className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-colors cursor-pointer ${
+                            reelVideoFile ? 'border-green-500/50 bg-green-950/20 text-green-300' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'
+                          }`}
+                        >
+                          <Film size={16} />
+                          {reelVideoFile ? reelVideoFile.name.slice(0, 20) + '...' : 'Choose Video File'}
+                        </button>
+                        <button
+                          onClick={() => reelCoverInputRef.current?.click()}
+                          className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-colors cursor-pointer ${
+                            reelCoverFile ? 'border-green-500/50 bg-green-950/20 text-green-300' : 'border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10'
+                          }`}
+                        >
+                          <Image size={16} />
+                          {reelCoverFile ? 'Cover Selected ✓' : 'Choose Cover Art (Optional)'}
+                        </button>
+                      </div>
+                      {reelCoverPreview && (
+                        <div className="relative w-24 h-24 rounded-xl overflow-hidden">
+                          <img src={reelCoverPreview} alt="Reel cover preview" className="w-full h-full object-cover" />
+                          <button onClick={() => { setReelCoverFile(null); setReelCoverPreview(null); }} className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center">
+                            <X size={10} />
+                          </button>
+                        </div>
+                      )}
+                      <button
+                        onClick={handleUploadReel}
+                        disabled={isUploadingReel}
+                        className="w-full flex items-center justify-center gap-2 bg-[var(--primary-accent)] text-black font-black py-3 rounded-xl transition-all hover:brightness-110 active:scale-95 disabled:opacity-50 cursor-pointer text-sm"
+                      >
+                        {isUploadingReel ? <RefreshCw size={16} className="animate-spin" /> : <Upload size={16} />}
+                        {isUploadingReel ? 'Uploading Video...' : 'Upload Reel to R2 & Firebase'}
+                      </button>
+                    </div>
+                    <input ref={reelVideoInputRef} type="file" accept="video/*" className="hidden" onChange={e => { if (e.target.files?.[0]) setReelVideoFile(e.target.files[0]); }} />
+                    <input ref={reelCoverInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) { setReelCoverFile(e.target.files[0]); const url = URL.createObjectURL(e.target.files[0]); setReelCoverPreview(url); }}} />
+                  </div>
+
+                </div>
+              </details>
+
+              {/* User Reel Requests Moderation */}
+              <div className="liquid-glass-pane p-6 rounded-3xl border border-white/5 space-y-4">
+                <h3 className="font-bold text-base mb-4 flex items-center gap-2">
+                  <Film size={16} className="text-[var(--primary-accent)]" />
+                  User Reel Upload Requests ({reelRequests.filter(r => r.status === 'pending').length} Pending)
+                </h3>
+
+                {reelRequests.filter(r => r.status === 'pending').length > 0 ? (
+                  <div className="space-y-4">
+                    {reelRequests.filter(r => r.status === 'pending').map((req) => (
+                      <div key={req.id} className="p-4 bg-white/5 border border-white/5 rounded-2xl space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-sm text-white truncate">{req.title}</h4>
+                            <p className="text-xs text-neutral-400">by {req.uploader} • Requested by: <span className="font-mono text-[var(--primary-accent)]">{req.requestedBy}</span></p>
+                            {req.description && <p className="text-xs text-neutral-500 mt-1 italic">{req.description}</p>}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={() => setPreviewVideoId(previewVideoId === req.id ? null : req.id)}
+                              className="px-3 py-1.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                            >
+                              <Eye size={12} />
+                              {previewVideoId === req.id ? 'Close Preview' : 'Preview Video'}
+                            </button>
+                            <button
+                              onClick={() => handleApproveReelRequest(req)}
+                              className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                            >
+                              <CheckCircle size={12} />
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => {
+                                setModeratingRequestId(req.id);
+                                setRejectReason('');
+                              }}
+                              className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                            >
+                              <AlertTriangle size={12} />
+                              Reject / Flag
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Inline Video Player Preview */}
+                        {previewVideoId === req.id && (
+                          <div className="relative rounded-2xl overflow-hidden bg-black aspect-video max-w-sm mx-auto border border-white/10">
+                            <video
+                              src={req.url}
+                              controls
+                              playsInline
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        )}
+
+                        {/* Rejection comment text area */}
+                        {moderatingRequestId === req.id && (
+                          <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            className="p-3 bg-red-950/20 border border-red-500/20 rounded-xl space-y-2 mt-2"
+                          >
+                            <label className="block text-[10px] font-black uppercase text-red-400">Rejection Reason / Flag Comments:</label>
+                            <textarea
+                              placeholder="Explain why the video is stopped (e.g. copyright issues, low audio quality, resolution incorrect)..."
+                              value={rejectReason}
+                              onChange={e => setRejectReason(e.target.value)}
+                              rows={2}
+                              className="w-full bg-black/40 border border-red-500/30 rounded-lg p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-red-500"
+                            />
+                            <div className="flex justify-end gap-2 text-xs">
+                              <button
+                                onClick={() => setModeratingRequestId(null)}
+                                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-neutral-400 rounded-lg font-bold"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={handleRejectReelRequest}
+                                className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold"
+                              >
+                                Confirm Rejection
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-neutral-500 text-center py-4">No pending reel requests at the moment.</p>
+                )}
+
+                {/* Historial Processed requests */}
+                {reelRequests.filter(r => r.status !== 'pending').length > 0 && (
+                  <div className="border-t border-white/5 pt-4 space-y-2">
+                    <h4 className="font-bold text-xs text-neutral-400 uppercase tracking-wider">Processed Reel Requests History</h4>
+                    <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+                      {reelRequests.filter(r => r.status !== 'pending').map((req) => (
+                        <div key={req.id} className="flex items-center justify-between gap-3 p-3 bg-white/5 rounded-xl border border-white/5 text-xs">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-white truncate">{req.title}</p>
+                            <p className="text-[10px] text-neutral-500 truncate">Requested by: {req.requestedBy}</p>
+                            {req.status === 'rejected' && req.adminComment && (
+                              <p className="text-[10px] text-red-400 italic truncate mt-0.5 font-semibold">Comment: "{req.adminComment}"</p>
+                            )}
+                          </div>
+                          <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase ${
+                            req.status === 'approved' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          }`}>
+                            {req.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Post Announcement */}
@@ -466,19 +828,46 @@ const AdminView: React.FC<AdminViewProps> = ({ onBack, profile, librarySongs, pl
                 </div>
               </div>
 
-              {/* Uploaded Songs List */}
+              {/* Manage Mwijay Songs */}
               {uploadedSongs.length > 0 && (
                 <div className="liquid-glass-pane p-5 rounded-3xl border border-white/5">
-                  <h3 className="font-bold text-sm text-neutral-400 uppercase tracking-wider mb-3">Uploaded Songs ({uploadedSongs.length})</h3>
-                  <div className="space-y-2">
+                  <h3 className="font-bold text-sm text-neutral-400 uppercase tracking-wider mb-3">Mwijay Originals ({uploadedSongs.length})</h3>
+                  <div className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
                     {uploadedSongs.map((s: any) => (
                       <div key={s.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
                         {s.albumArtUrl && <img src={s.albumArtUrl} alt={s.title} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />}
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-sm text-white truncate">{s.title}</p>
                           <p className="text-xs text-neutral-400 truncate">{s.artist}</p>
+                          <p className="text-[10px] text-neutral-500">{s.playCount || 0} plays</p>
                         </div>
+                        <button onClick={async () => { await adminSongsService.toggleFeature(s.id, !s.featured); loadUploadedContent(); showNotification(s.featured ? 'Unfeatured' : 'Featured!', 'success'); }}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${s.featured ? 'bg-[var(--primary-accent)] text-black' : 'bg-white/5 text-neutral-500 hover:bg-white/10'}`}
+                                title={s.featured ? 'Unfeature' : 'Feature on Home'}>
+                          <Star size={12} />
+                        </button>
                         <button onClick={() => handleDeleteAdminSong(s.id)} className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center hover:bg-red-500/40 transition-colors cursor-pointer">
+                          <Trash2 size={12} className="text-red-400" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Uploaded Reels List */}
+              {uploadedReels.length > 0 && (
+                <div className="liquid-glass-pane p-5 rounded-3xl border border-white/5">
+                  <h3 className="font-bold text-sm text-neutral-400 uppercase tracking-wider mb-3">Uploaded Reels ({uploadedReels.length})</h3>
+                  <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                    {uploadedReels.map((r: any) => (
+                      <div key={r.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
+                        {r.thumbnailUrl && <img src={r.thumbnailUrl} alt={r.title} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm text-white truncate">{r.title}</p>
+                          <p className="text-xs text-neutral-400 truncate">{r.uploader}</p>
+                        </div>
+                        <button onClick={() => handleDeleteAdminReel(r.id)} className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center hover:bg-red-500/40 transition-colors cursor-pointer">
                           <Trash2 size={12} className="text-red-400" />
                         </button>
                       </div>
@@ -803,6 +1192,160 @@ const AdminView: React.FC<AdminViewProps> = ({ onBack, profile, librarySongs, pl
           )}
 
         </AnimatePresence>
+
+        <R2UploadModal
+          isOpen={uploadModalOpen}
+          onClose={() => setUploadModalOpen(false)}
+          folder={uploadFolder}
+          onUploadComplete={(results) => {
+            console.log('[Admin] Upload complete:', results);
+            const succeeded = results.filter(r => r.success);
+            const failed = results.filter(r => !r.success);
+            if (succeeded.length > 0) {
+              showNotification(`Uploaded ${succeeded.length} file(s) to R2`, 'success');
+              if (uploadFolder === 'songs' && succeeded[0]) {
+                setPendingR2Meta({ fileUrl: succeeded[0].publicUrl, fileName: succeeded[0].fileName });
+                setR2MetaForm({ title: '', artist: '', description: '' });
+              }
+            }
+            if (failed.length > 0) {
+              showNotification(`${failed.length} upload(s) failed. Check console.`, 'error');
+            }
+          }}
+        />
+
+        {/* R2 Upload Metadata Form */}
+        {pendingR2Meta && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+               onClick={() => { if (!savingMeta) setPendingR2Meta(null); }}>
+            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-lg p-6"
+                 onClick={e => e.stopPropagation()}>
+              <h3 className="font-bold text-base text-white mb-1">Add Song Metadata</h3>
+              <p className="text-xs text-neutral-400 mb-4 truncate">
+                File: {pendingR2Meta.fileName}
+              </p>
+              <div className="space-y-3">
+
+                {/* Cover Art Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-2">Cover Art</label>
+                  {coverArtPreview ? (
+                    <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-white/10">
+                      <img src={coverArtPreview} className="w-full h-full object-cover" alt="Cover preview" />
+                      <button onClick={() => { setCoverArtFile(null); setCoverArtPreview(null); setCoverArtUrl(''); }}
+                              className="absolute top-1 right-1 w-6 h-6 bg-black/70 text-white rounded-full flex items-center justify-center hover:bg-black/90 cursor-pointer">
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="block w-32 h-32 border-2 border-dashed border-neutral-700 hover:border-[var(--primary-accent)] rounded-lg cursor-pointer flex items-center justify-center text-neutral-400 hover:text-white transition-colors text-sm">
+                      <input type="file" accept="image/*" className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setCoverArtFile(file);
+                          setCoverArtPreview(URL.createObjectURL(file));
+                          setUploadingCover(true);
+                          try {
+                            const fd = new FormData();
+                            fd.append('file', file);
+                            fd.append('folder', 'covers');
+                            const res = await fetch('/api/r2/upload', { method: 'POST', body: fd });
+                            if (res.ok) {
+                              const data = await res.json();
+                              setCoverArtUrl(data.secure_url);
+                            } else {
+                              throw new Error('Upload failed');
+                            }
+                          } catch (e) {
+                            console.error('[Cover] Upload error:', e);
+                            showNotification('Cover art upload failed, will use auto-generated', 'error');
+                          } finally {
+                            setUploadingCover(false);
+                          }
+                        }}
+                      />
+                      {uploadingCover ? 'Uploading...' : '+ Add Cover'}
+                    </label>
+                  )}
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Song Title *"
+                  value={r2MetaForm.title}
+                  onChange={e => setR2MetaForm(p => ({ ...p, title: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="Artist Name *"
+                  value={r2MetaForm.artist}
+                  onChange={e => setR2MetaForm(p => ({ ...p, artist: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm"
+                />
+                <textarea
+                  placeholder="Description (optional)"
+                  value={r2MetaForm.description}
+                  onChange={e => setR2MetaForm(p => ({ ...p, description: e.target.value }))}
+                  rows={2}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary-accent)]/50 text-sm resize-none"
+                />
+
+                {saveMetaError && (
+                  <p className="text-red-400 text-xs">{saveMetaError}</p>
+                )}
+
+                <div className="flex gap-3">
+                  <button onClick={() => { setPendingR2Meta(null); setSaveMetaError(null); setCoverArtFile(null); setCoverArtPreview(null); setCoverArtUrl(''); }}
+                          disabled={savingMeta}
+                          className="flex-1 py-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-medium cursor-pointer text-sm disabled:opacity-50">
+                    Skip
+                  </button>
+                  <button onClick={async () => {
+                    if (!r2MetaForm.title || !r2MetaForm.artist) {
+                      setSaveMetaError('Title and Artist are required');
+                      return;
+                    }
+                    setSavingMeta(true);
+                    setSaveMetaError(null);
+                    try {
+                      const timeoutPromise = new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error('Save timed out — check internet connection')), 30000)
+                      );
+                      const savePromise = adminSongsService.create({
+                        title: r2MetaForm.title.trim(),
+                        artist: r2MetaForm.artist.trim(),
+                        description: r2MetaForm.description.trim(),
+                        url: pendingR2Meta.fileUrl,
+                        albumArtUrl: coverArtUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(r2MetaForm.title)}&background=9333ea&color=fff&size=400`,
+                      });
+                      await Promise.race([savePromise, timeoutPromise]);
+                      showNotification(`"${r2MetaForm.title}" saved to Firestore! 🎵`, 'success');
+                      setPendingR2Meta(null);
+                      setCoverArtFile(null);
+                      setCoverArtPreview(null);
+                      setCoverArtUrl('');
+                      setSaveMetaError(null);
+                      loadUploadedContent();
+                    } catch (err: any) {
+                      console.error('Failed to save metadata:', err);
+                      setSaveMetaError(err?.message || 'Failed to save to Firestore');
+                    } finally {
+                      setSavingMeta(false);
+                    }
+                  }}
+                          disabled={savingMeta}
+                          className="flex-1 py-3 rounded-xl bg-[var(--primary-accent)] text-black font-bold hover:brightness-110 cursor-pointer text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                    {savingMeta ? (
+                      <><span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> Saving...</>
+                    ) : 'Save Song'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

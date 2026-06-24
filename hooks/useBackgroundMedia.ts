@@ -12,7 +12,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import type { Song, MediaSessionActionDetails } from '../types';
 import { mediaSessionService } from '../services/mediaSessionService';
-import { MusicControl } from '../plugins/MusicControlPlugin';
+import MediaControl from '../plugins/MediaControl';
 
 interface BackgroundMediaControls {
   onPlay:         () => void;
@@ -22,11 +22,13 @@ interface BackgroundMediaControls {
   onSeekForward:  (details: MediaSessionActionDetails) => void;
   onSeekBackward: (details: MediaSessionActionDetails) => void;
   onSeekTo:       (details: MediaSessionActionDetails) => void;
+  onLike?:        () => void;
 }
 
 const isNative = Capacitor.isNativePlatform();
 
 export const useBackgroundMedia = (
+  audioRef:  React.RefObject<HTMLAudioElement | null>,
   song:      Song | null,
   isPlaying: boolean,
   progress:  number,
@@ -39,20 +41,24 @@ export const useBackgroundMedia = (
   const nativeListenerRef     = useRef<{ remove: () => void } | null>(null);
   const nativePositionTimer   = useRef<number | null>(null);
   const lastPositionUpdateRef = useRef<number>(0);
+  const progressRef           = useRef(progress);
+
+  // Synchronize progress reference to avoid rendering dependencies
+  useEffect(() => { progressRef.current = progress; }, [progress]);
 
   // Keep controls pointer stable
   useEffect(() => { controlsRef.current = controls; }, [controls]);
 
-  // ── 1. Initialize mediaSessionService once ─────────────────────────────────
-  useEffect(() => {
-    if (audioInitialized.current) return;
-    audioInitialized.current = true;
+  const lastAudioEl = useRef<HTMLAudioElement | null>(null);
 
-    // Find the actual <audio> element in the DOM (App.tsx uses audioRef)
-    const audioEl = document.querySelector('audio') as HTMLAudioElement | null;
-    if (audioEl) {
-      mediaSessionService.initialize(audioEl);
-    }
+  // ── 1. Initialize mediaSessionService when audio element is ready ──────────
+  useEffect(() => {
+    const audioEl = audioRef.current;
+    if (!audioEl) return;
+    if (lastAudioEl.current === audioEl) return;
+
+    lastAudioEl.current = audioEl;
+    mediaSessionService.initialize(audioEl);
 
     // Wire all controls through the service
     mediaSessionService.setupActionHandlers({
@@ -65,8 +71,10 @@ export const useBackgroundMedia = (
       },
     });
 
-    return () => { mediaSessionService.destroy(); };
-  }, []); // run once
+    return () => {
+      // Standard cleanup
+    };
+  }, [audioRef.current]);
 
   // ── 2. Push track metadata whenever the song changes ──────────────────────
   useEffect(() => {
@@ -88,7 +96,9 @@ export const useBackgroundMedia = (
 
     // Push to Android native foreground service
     if (isNative) {
-      MusicControl.updateNowPlaying({
+      const isLive = !isFinite(duration) || duration === 0 || song.streamTitle !== undefined;
+      const mediaType = song.streamTitle ? 'radio' : song.isFromReel ? 'reel' : 'music';
+      MediaControl.update({
         title:     song.title,
         artist:    song.artist,
         album:     song.artist || '',
@@ -97,10 +107,12 @@ export const useBackgroundMedia = (
         isLiked:   song.isFavorite ?? false,
         duration:  isFinite(duration) ? Math.floor(duration * 1000) : 0,
         position:  Math.floor(progress * 1000),
+        type:      mediaType,
+        isLive,
       }).catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [song?.id, song?.title, song?.artist, song?.albumArtUrl, song?.isFavorite]);
+  }, [song?.id, song?.title, song?.artist, song?.albumArtUrl, song?.isFavorite, duration]);
 
   // ── 3. Update playback state (play/pause) and seek bar ────────────────────
   useEffect(() => {
@@ -112,17 +124,14 @@ export const useBackgroundMedia = (
     const isLive = !isFinite(duration) || duration === 0;
 
     if (!isLive) {
-      const now = Date.now();
-      // Throttle to once per 2 s to avoid thrashing the OS
-      if (now - lastPositionUpdateRef.current > 2000 || !isPlaying) {
-        lastPositionUpdateRef.current = now;
-        mediaSessionService.updatePositionState(progress, duration);
-      }
+      mediaSessionService.updatePositionState(progressRef.current, duration);
     }
 
     // Push play-state to Android native service
     if (isNative && song) {
-      MusicControl.updateNowPlaying({
+      const isLive = !isFinite(duration) || duration === 0 || song.streamTitle !== undefined;
+      const mediaType = song.streamTitle ? 'radio' : song.isFromReel ? 'reel' : 'music';
+      MediaControl.update({
         title:     song.title,
         artist:    song.artist,
         album:     song.artist || '',       // No album field in Song type
@@ -130,10 +139,12 @@ export const useBackgroundMedia = (
         isPlaying,
         isLiked:   song.isFavorite ?? false,
         duration:  isFinite(duration) ? Math.floor(duration * 1000) : 0,
-        position:  Math.floor(progress * 1000),
+        position:  Math.floor(progressRef.current * 1000),
+        type:      mediaType,
+        isLive,
       }).catch(() => {});
     }
-  }, [isPlaying, progress, duration, song?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isPlaying, duration, song?.id, song?.isFavorite]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 4. Re-bind seek handlers when duration changes (live vs. track) ────────
   useEffect(() => {
@@ -169,7 +180,7 @@ export const useBackgroundMedia = (
     // Remove existing listener before registering new one
     nativeListenerRef.current?.remove();
 
-    MusicControl.addListener('mediaAction', (data) => {
+    MediaControl.addListener('mediaAction', (data) => {
       switch (data.action) {
         case 'com.mwijay.ACTION_PLAY':
           controlsRef.current.onPlay();
@@ -182,6 +193,9 @@ export const useBackgroundMedia = (
           break;
         case 'com.mwijay.ACTION_PREV':
           controlsRef.current.onPrev();
+          break;
+        case 'com.mwijay.ACTION_LIKE':
+          controlsRef.current.onLike?.();
           break;
         case 'SEEK':
           if (data.position !== undefined) {
@@ -214,7 +228,9 @@ export const useBackgroundMedia = (
 
     nativePositionTimer.current = window.setInterval(() => {
       if (!song) return;
-      MusicControl.updateNowPlaying({
+      const isLive = !isFinite(duration) || duration === 0 || song.streamTitle !== undefined;
+      const mediaType = song.streamTitle ? 'radio' : song.isFromReel ? 'reel' : 'music';
+      MediaControl.update({
         title:     song.title,
         artist:    song.artist,
         album:     song.artist || '',       // No album field in Song type
@@ -222,7 +238,9 @@ export const useBackgroundMedia = (
         isPlaying: true,
         isLiked:   song.isFavorite ?? false,
         duration:  isFinite(duration) ? Math.floor(duration * 1000) : 0,
-        position:  Math.floor(progress * 1000),
+        position:  Math.floor(progressRef.current * 1000),
+        type:      mediaType,
+        isLive,
       }).catch(() => {});
     }, 5000); // Every 5 s — just enough for the scrubber to feel responsive
 
@@ -232,11 +250,11 @@ export const useBackgroundMedia = (
         nativePositionTimer.current = null;
       }
     };
-  }, [isPlaying, song?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isPlaying, song?.id, song?.isFavorite, duration]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 7. Stop native service when nothing is playing ────────────────────────
   const stopNativeService = useCallback(() => {
-    if (isNative) MusicControl.stopService().catch(() => {});
+    if (isNative) MediaControl.stop().catch(() => {});
   }, []);
 
   return { stopNativeService };

@@ -33,7 +33,6 @@ class SmoothAudioPlayer {
     this.currentAudio = audio
     // Apply optimizations to the passed element
     this.currentAudio.preload = 'auto'
-    this.currentAudio.crossOrigin = 'anonymous'
     this.currentAudio.setAttribute('playsinline', 'true')
     this.currentAudio.setAttribute('webkit-playsinline', 'true')
     this.currentAudio.setAttribute('x5-playsinline', 'true')

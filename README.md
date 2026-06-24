@@ -1,197 +1,2169 @@
-# Mwijay Music App 🎵
-### High-Fidelity Localized Bongo Flava Player & Client-Side AI Audio Engine
+# 🎵 Mwijay Music App — Your AI-Powered Music Experience
 
-Mwijay Music App is an offline-first, client-side progressive hybrid mobile application tailored for the East African / Tanzanian musical identity. It combines a vibrant, glassmorphic visual aesthetic with a Text-to-Speech (TTS) Speech Synthesis assistant, zero-latency DSP audio presets, real-time microphone voice modulators, and local progression metrics.
-
----
-
-## 🏛️ Architectural Philosophy & VPS Decoupling
-
-To ensure maximum performance on low-resource hardware, the application implements a fully decoupled architecture:
-
-```
-  ┌──────────────────────────────────────────────────────────┐
-  │                   CLIENT-SIDE PHONE                      │
-  │  (Vite + React + TypeScript + Capacitor Native Shell)    │
-  │                                                          │
-  │  ┌───────────────────────┐   ┌────────────────────────┐  │
-  │  │   Tone.js DSP Engine  │   │   Meyda.js Analyzer    │  │
-  │  │   • Voice Presets     │   │   • Energy Auto-BPM    │  │
-  │  │   • Parametric EQ3    │   │   • Chroma Key Search  │  │
-  │  │   • Live Mic Changer  │   │   • ZCR / RMS Moods    │  │
-  │  └───────────────────────┘   └────────────────────────┘  │
-  │  ┌────────────────────────────────────────────────────┐  │
-  │  │               Gamification Engine                  │  │
-  │  │   • IndexedDB Database ("MwijayMusicDB")           │  │
-  │  │   • Timezone-safe Streaks & Milestones Checkers    │  │
-  │  │   • Level-Up Confetti & TTS Speech Congrats            │  │
-  │  └────────────────────────────────────────────────────┘  │
-  └───────────────────────────┬──────────────────────────────┘
-                              │ (Lightweight Web Queries)
-                              ▼
-  ┌──────────────────────────────────────────────────────────┐
-  │                 AWS EC2 VPS (2GB RAM)                    │
-  │                 (FastAPI Microservice)                   │
-  │                                                          │
-  │  • Unified Platform Search & Discovery (YTMusic, Jamendo)│
-  │  • Gemini AI Mood DJ & Transition Playlists              │
-  │  • NO heavy Python audio models loaded (Librosa/Spleeter)│
-  └──────────────────────────────────────────────────────────┘
-```
-
-* **Client-Side Heavy Processing**: All DSP sound manipulation, voice filters, equalizer gains, waveform visualizers, metronome ticks, and audio calculations run **100% locally on the phone's CPU/GPU**. This guarantees the app is fully functional offline inside native mobile APKs.
-* **Decoupled VPS Scope**: The Python server (`app/server.py`) acts purely as a lightweight, memory-efficient search coordinator and Gemini API DJ router. Memory-heavy Python ML/DSP packages (`librosa`, `pedalboard`, `aubio`, `spleeter`) are completely deprecated and removed, freeing up all system RAM on your 2GB AWS EC2 instance.
+> **Version 1.0.0** | 🟡 Beta | Built by [@mwijay](https://github.com/mwijay12) | [Live Demo](https://github.com/mwijay12/Mwijay-Music-App)
 
 ---
 
-## 🛠️ Detailed Technical Deep-Dive
+## 📋 TABLE OF CONTENTS
 
-### 1. Client-Side DSP Audio Engine (`services/audioEngine.ts`)
-The audio engine connects HTML5 `<audio>` player streams directly into a complex Tone.js Web Audio node graph:
-
-```
-  HTML5 <audio> ➔ MediaElementAudioSourceNode
-                         │
-                         ▼
-                     Tone.EQ3 (Bass, Mid, Treble Parametric EQ)
-                         │
-                         ▼
-                   Tone.PitchShift (Semitone Modulation)
-                         │
-                         ▼
-                 Tone.BitCrusher (Sample-Rate Crusher)
-                         │
-                         ▼
-                   Tone.Filter (Lowpass / Highpass Sweep)
-                         │
-                         ▼
-                 Tone.Distortion (Vinyl Hiss / Tube warmth)
-                         │
-                         ▼
-                  Tone.Chorus (Phase & Space sweeps)
-                         │
-                         ▼
-                  Tone.Reverb (Reverberation decay space)
-                         │
-                         ▼
-              Tone.FeedbackDelay (Echo tempo intervals)
-                         │
-                         ▼
-                 Tone.Volume (Preamp Amplification)
-                         │
-                         ▼
-                  Tone.Destination (Output)
-```
-
-* **Voice Changer Presets**: Directly alters the frequency and sample-depth parameters of the active nodes:
-  * `Chipmunk 🐿️`: Pitch shifts semitones by `+6`.
-  * `Deep Voice 🦁`: Pitch shifts by `-5` and boosts lower EQ gains.
-  * `Robot 🤖`: Blends in `BitCrusher` sample reduction (`8-bit`) and high-frequency depth chorus sweeps.
-* **Music Atmosphere Presets**:
-  * `Slowed + Reverb 🌌`: Lowers playback speed natively to `85%`, shifts pitch down, and runs a huge `5.0s` stadium reverb tail.
-  * `Nightcore ⚡`: Speeds up playback to `125%` and shifts pitch up by `+2 semitones` for that classic high-energy vibe.
-  * `Lofi Vibes 📻`, `Telephone 📞`, `Underwater 🌊`, `Stadium 🏟️`, `Vinyl 🎧`.
-* **Vocal Mic Modulation**: Accesses `navigator.mediaDevices.getUserMedia` microphone lines to feed vocals into pitch-shifting nodes in real-time, allowing users to talk through vocal presets with zero lag.
-
-### 2. Client-Side Audio Analyzer (`services/audioAnalyzer.ts`)
-Rather than uploading heavy audio files to the server, the app decodes PCM channels directly inside the browser using standard Web Audio `decodeAudioData`:
-
-* **Energy Autocorrelation BPM Detection**:
-  1. Computes Root-Mean-Square (RMS) energy profiles across 100ms window blocks of Float32 PCM vectors.
-  2. Identifies peak beats exceeding dynamically calculated standard thresholds.
-  3. Computes average peak intervals in seconds and converts them to Beats-Per-Minute (BPM) values.
-* **Chroma Tonal Key Detection**: Extracts a 12-dimensional chroma intensity vector representing energy distribution over the twelve semitones of the musical octave. Matches the index of the highest vector value to standard musical keys (C, D#, A, etc.).
-* **Vibe Mood Estimation**: Intersects Zero-Crossing Rates (ZCR) representing high-frequency transients with overall RMS energy levels to categorize tracks into:
-  * *Energetic 🔥* (High RMS, High ZCR)
-  * *Intense ⚡* (High RMS, Low ZCR)
-  * *Calm & Bright 🍃* (Low RMS, High ZCR)
-  * *Melancholic / Deep 🌧️* (Low RMS, Low ZCR)
-
-### 3. Local Caching & Progression System
-* **IndexedDB Store ("MwijayMusicDB")**: Built with local-first databases to cache songs, playlists, reels, and profiles locally.
-* **Timezone-Safe Streak Checkers (`utils/gamification.ts`)**:
-  * Tracks consecutive listening days by storing string date markers (`YYYY-MM-DD`) in UTC+3 (East African Time).
-  * Automatically applies up to 2 weekly "streak freezes" if a day is missed.
-  * Extends streak records when playback exceeds 5 continuous minutes (300 seconds) in a single calendar day.
-* **TTS Speech Level Boundary crossed celebrations**: Plays dynamic vocal congratulations using the native Web Speech API:
-  > *"Congratulations! You leveled up to level [Level]. You are now a [Rank Title]! Keep the music playing!"*
+1. [PROJECT IDENTITY](#-section-1-project-identity)
+2. [LIVE SYSTEM SNAPSHOT](#-section-2-live-system-snapshot)
+3. [SYSTEM ARCHITECTURE](#-section-3-system-architecture)
+4. [COMPLETE FILE STRUCTURE](#-section-4-complete-file-structure)
+5. [INSTALLATION & SETUP](#-section-5-installation--setup)
+6. [HOW TO USE IT](#-section-6-how-to-use-it)
+7. [DATABASE SCHEMA](#-section-7-database-schema)
+8. [AI INTEGRATION DETAILS](#-section-8-ai-integration-details)
+9. [CURRENT LIMITATIONS & KNOWN BUGS](#-section-9-current-limitations--known-bugs)
+10. [MODIFICATION & ADDON GUIDE](#-section-10-modification--addon-guide)
+11. [DEPLOYMENT GUIDE](#-section-11-deployment-guide)
+12. [COST CALCULATOR](#-section-12-cost-calculator)
+13. [ROADMAP](#-section-13-roadmap)
+14. [LESSONS LEARNED](#-section-14-lessons-learned)
+15. [QUICK REFERENCE CARD](#-section-15-quick-reference-card)
 
 ---
 
-## 📂 Codebase Directory Layout
+## 🚀 SECTION 1: PROJECT IDENTITY
+
+### Mwijay Music App 🎧
+
+**What it does to a 10 year old:**  
+Mwijay is a music player that plays songs from your phone AND from the internet, can make playlists based on how you're feeling, lets you watch music video reels, and has a smart AI friend that chats with you about music.
+
+**What it does to a developer:**  
+Mwijay is a full-stack, cross-platform music application built with React + TypeScript + Capacitor (iOS/Android/Web) with a dual-backend architecture: an Express/Node.js server for real-time chart data and Cloudinary integrations, and a Python FastAPI microservice for AI-driven mood-based playlist generation, audio DSP (beat detection, stem separation, EQ effects), music source aggregation (YouTube Music, Jamendo, Deezer, Audius, 10+ providers), listening analytics with yearly "Wrapped" reports, and gamification (XP, levels, achievements). It includes a Firebase backend for auth, Firestore for data, and Firebase Storage for media.
+
+**Business problem it solves:**  
+Music streaming fragmentation is real. Users maintain Spotify, Apple Music, YouTube Music, and local MP3 libraries separately. Mwijay unifies all of them into ONE app: play local files, stream from 10+ online sources, generate AI mood playlists, watch music reels, listen to internet radio stations, and chat with an AI music assistant — all without switching apps. It works offline with local media, online with streaming, and intelligently bridges both worlds.
+
+**Current Version:** `1.0.0` 🟡 Beta  
+**Status:** Active development — core features working, some edge cases in progress.
+
+**Who built it:** Built by Mwijay (individual developer / indie creator) out of a personal frustration with music app fragmentation and a desire to build "the music app I always wanted."
+
+**What makes this different:**  
+- **Unified source architecture** — one search queries YouTube Music, Deezer, Jamendo, Audius, Internet Archive, and local files simultaneously  
+- **AI Mood DJ** — describe your mood in text or emoji and get a curated playlist generated by Google Gemini AI  
+- **Built-in audio DSP** — 10-band EQ, bass boost, delay effects, real-time audio visualization, beat detection, and stem separation  
+- **Gamified music experience** — earn XP for listening, level up, unlock achievements, streak tracking  
+- **Reels + Radio + Podcasts** — all in one app  
+- **Offline-first local scanner** — scans device storage for music/video files and indexes them locally  
+- **Capacitor native** — runs as a real Android app with background playback, notifications, and media controls
+
+---
+
+## 📊 SECTION 2: LIVE SYSTEM SNAPSHOT
+
+### System Component Status Table
+
+| Component | Status | What It Does | Tech Used |
+|-----------|--------|-------------|-----------|
+| React Frontend | ✅ Working | Main UI app with all views and navigation | React 19, TypeScript, Vite 5 |
+| Express Server | ✅ Working | Serves SPA, handles API routes for charts, Cloudinary | Express 5, Node.js, Vite middleware |
+| Python FastAPI Backend | ✅ Working | AI mood DJ, music source aggregation, audio DSP, analytics | FastAPI, Uvicorn, ytmusicapi, librosa |
+| Capacitor Android | ✅ Working | Native Android wrapper with background playback | Capacitor 6, Java/Kotlin plugins |
+| Firebase Auth | ✅ Working | Email/password + Google Sign-In | Firebase Auth v12 |
+| Firestore Database | ✅ Working | User profiles, playlists, settings, analytics | Firestore v12 |
+| Cloudinary Uploads | ✅ Working | Image uploads for playlists and profiles | Cloudinary SDK v2 |
+| iTunes Charts API | ✅ Working | Fetches top songs by country | iTunes RSS Feed (no auth) |
+| Deezer Charts API | ✅ Working | Fetches global and African charts | Deezer Public API |
+| Google Gemini AI | ✅ Working | Mood DJ, chat assistant, content generation | @google/genai SDK |
+| Local File Scanner | ✅ Working | Scans device for audio/video files | Capacitor Filesystem |
+| Audio Engine (TS) | ✅ Working | Web Audio API playback, EQ, visualizer | Web Audio API, Tone.js, Meyda |
+| Audio Engine (Python) | ✅ Working | Beat detection, stem separation, effects | librosa, spleeter, numpy |
+| Gamification System | ✅ Working | XP, levels, streaks, achievements | Client-side logic in utils/ |
+| Music Reels | ✅ Working | Short-form vertical video content | Custom component |
+| Internet Radio | ✅ Working | Streaming radio stations | Radio Browser API |
+| AI Assistant Chat | ✅ Working | Conversational music AI with memory | Gemini API + IndexedDB |
+| Party Mode | ✅ Working | Collaborative queue for parties | Local state + sharing |
+| Zen Mode | ✅ Working | Minimalist focus player | Fullscreen overlay |
+| Simple Mode | ✅ Working | Simplified UI for elderly/kids | Alternate UI components |
+| Social Features | ⚠️ Partial | Likes, comments, play counts working; sharing in progress | Firestore + custom services |
+| Music Quiz | ✅ Working | Guess the song game | Quiz logic + song data |
+| Audio Mastering | ✅ Working | AI-powered audio mastering effects | Web Audio API DSP |
+| Karaoke / Lyrics Sync | ✅ Working | Real-time karaoke with lyrics | Microphone + lyrics service |
+| Transcription | ✅ Working | Audio-to-text transcription | AI service |
+| Wisdom/Mood Cards | ✅ Working | Quote generation with mood-based art | Wikipedia + quotes API |
+
+### What Is Fully Working Right Now
+- ✅ Full music playback (local files, streaming URLs, radio streams)
+- ✅ Local device media scanning (MP3, MP4, WAV, FLAC, etc.)
+- ✅ Online music search across 10+ providers (YouTube Music, Jamendo, Deezer, Audius, Internet Archive, CCMixter, HearThis, LibriVox, LastFM, Genius)
+- ✅ AI Mood DJ — text and emoji-based playlist generation
+- ✅ AI Assistant chat with music knowledge and memory
+- ✅ 10-band equalizer with presets
+- ✅ Audio visualization (spectrum, waveform, particles)
+- ✅ Playlist management (create, edit, delete, import/export)
+- ✅ Reels view (vertical video content)
+- ✅ Internet radio (genre browsing, station search, streaming)
+- ✅ User authentication (email/password + Google)
+- ✅ Gamification (XP, levels, achievements, daily streaks)
+- ✅ Party mode (collaborative queue)
+- ✅ Zen mode (distraction-free listening)
+- ✅ Simple mode (accessible interface)
+- ✅ Sleep timer
+- ✅ Weekly "For You" recommendations
+- ✅ Music quiz game
+- ✅ Dark/light themes with dynamic color schemes
+- ✅ Timeline-based history view
+- ✅ Analytics panel (listening stats, top artists, top songs)
+
+### What Is Partially Working
+- ⚠️ **Social features**: Like/love buttons work, comments work, but follower/following and activity feeds are not fully implemented
+- ⚠️ **Cloud sync**: Profile syncs to Firestore, but full cross-device playlist sync is not complete
+- ⚠️ **Background playback**: Works on Android via native service, but iOS background audio has limitations
+- ⚠️ **Shareable previews**: Can generate shareable cards but direct social sharing APIs need refinement
+- ⚠️ **Audio mastering studio**: Basic mastering works but advanced presets and chain effects are in progress
+
+### What Is Planned But Not Started
+- 🔲 Full offline mode with cached streaming content
+- 🔲 Apple Music integration
+- 🔲 Spotify integration
+- 🔲 Collaborative playlists (real-time shared editing)
+- 🔲 Podcast subscriptions and episode management
+- 🔲 User-generated content uploads (upload your own music to share)
+- 🔲 Desktop app (Electron/Tauri)
+- 🔲 Push notifications for new music recommendations
+- 🔲 Advanced music discovery with ML recommendations
+- 🔲 Lyrics contribution by users
+- 🔲 Social feed with friend activity
+
+### What Was Tried And Abandoned
+- ❌ **Self-hosted music streaming server**: Attempted to build a personal Plex-like streaming server. Abandoned due to complexity of NAT traversal, SSL cert management, and bandwidth costs. Replaced with decentralized sources (Deezer preview URLs, Jamendo free tracks, YouTube Music extraction).
+- ❌ **WebRTC peer-to-peer sharing**: Experimented with WebTorrent for P2P music sharing. Abandoned due to legal concerns and unreliable peer discovery.
+- ❌ **Blockchain/NFT music ownership tracking**: Explored integrating with music NFTs. Abandoned because the feature added complexity without clear user value. May revisit if the market matures.
+- ❌ **Full Python-only backend**: Initially wrote everything in FastAPI (auth, data, AI). Migrated auth and data to Firebase/Firestore for better scalability and reduced server costs. Python now handles only AI/analytics/DSP workloads.
+
+---
+
+## 🏗️ SECTION 3: SYSTEM ARCHITECTURE
+
+### ASCII Architecture Diagram
 
 ```
-├── app/                      # PYTHON BACKEND (Lightweight FastAPI microservice)
-│   ├── ai/                   # Mood DJ Gemini pipelines
-│   ├── analytics/            # Listening breakdown stats & wrapped Slide compilations
-│   ├── audio/                # Local audio engine (X-ray analysis, rhythmic coordinates)
-│   ├── sources/              # YouTube Music Search & metadata parsers
-│   └── server.py             # FastAPI Server Entry point (Gamification deleted)
+┌─────────────────────────────────────────────────────────────────────┐
+│                        USER (Browser / Android)                      │
+└──────────────────┬────────────────────────┬──────────────────────────┘
+                   │                        │
+                   ▼                        ▼
+┌──────────────────────────────┐  ┌──────────────────────────────────┐
+│      React SPA (Vite)        │  │     Capacitor Native Shell      │
+│  ┌────────────────────────┐  │  │  ┌───────────────────────────┐  │
+│  │ App.tsx (Main Router)  │  │  │  │ Android Native Plugins    │  │
+│  │  ├── HomeView          │  │  │  │  ├── MusicService.java    │  │
+│  │  ├── LibraryView       │  │  │  │  ├── MediaScanner.kt      │  │
+│  │  ├── ReelsView         │  │  │  │  ├── MediaControl.ts      │  │
+│  │  ├── RadioView         │  │  │  │  └── MediaSession         │  │
+│  │  ├── PlayerOverlay     │  │  │  └───────────────────────────┘  │
+│  │  ├── AssistantView     │  │  └──────────────────────────────────┘
+│  │  ├── CreateView        │  │
+│  │  ├── SettingsView      │  │
+│  │  └── ProfileView       │  │
+│  └────────────────────────┘  │
+└──────────────┬───────────────┘
+               │
+               │ HTTP / WebSocket
+               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                     EXPRESS SERVER (server.ts)                        │
+│  Port 3000                                                            │
+│                                                                       │
+│  ┌──────────────────────┐  ┌────────────────┐  ┌──────────────────┐ │
+│  │ GET /api/charts/     │  │ GET /api/       │  │ GET /api/        │ │
+│  │ itunes?country=us    │  │ cloudinary-     │  │ health           │ │
+│  │ GET /api/charts/     │  │ signature        │  │                  │ │
+│  │ deezer?chart=0       │  │                  │  │                  │ │
+│  └──────────┬───────────┘  └────────┬───────┘  └──────────────────┘ │
+│             │                       │                                │
+└─────────────┼───────────────────────┼────────────────────────────────┘
+              │                       │
+              ▼                       ▼
+     ┌──────────────┐      ┌──────────────────┐
+     │ iTunes API   │      │ Cloudinary CDN   │
+     │ Deezer API   │      │ (image uploads)  │
+     └──────────────┘      └──────────────────┘
+              │
+              │ HTTP (dev proxy) / Static files (prod)
+              ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                     PYTHON FASTAPI SERVER (app/server.py)             │
+│  Port 8000                                                            │
+│                                                                       │
+│  ┌──────────────┐  ┌───────────────┐  ┌──────────────┐  ┌─────────┐ │
+│  │ MUSIC        │  │ AI MODULES    │  │ ANALYTICS    │  │ AUDIO   │ │
+│  │ SOURCES      │  │               │  │              │  │ DSP     │ │
+│  │              │  │               │  │              │  │         │ │
+│  │ YTMusicSource│  │ MoodDJ       │  │ ListeningStats│  │ Beat    │ │
+│  │ JamendoSource│  │ → Gemini AI  │  │ MwijayWrapped │  │ Detector│ │
+│  │ DeezerSource │  │   mood parser│  │              │  │         │ │
+│  │ AudiusSource │  │   playlist   │  │              │  │ Stem    │ │
+│  │ ArchiveSource│  │   generator  │  │              │  │ Separator│ │
+│  │ CcMixterSrc  │  │              │  │              │  │         │ │
+│  │ HearThisSrc  │  │              │  │              │  │ Audio   │ │
+│  │ LibriVoxSrc  │  │              │  │              │  │ Effects │ │
+│  │ LastFMSource │  │              │  │              │  │         │ │
+│  │ GeniusSource │  │              │  │              │  │ Analyzer │ │
+│  │ TheAudioDBSrc│  │              │  │              │  │         │ │
+│  │ ITunesSource │  │              │  │              │  │         │ │
+│  └──────┬───────┘  └──────────────┘  └──────────────┘  └─────────┘ │
+└─────────┼───────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                      FIREBASE BACKEND                                │
+│                                                                      │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────────────┐ │
+│  │ Firebase Auth    │  │ Firestore DB    │  │ Firebase Storage     │ │
+│  │ - Email/Password │  │ - users         │  │ - Profile images     │ │
+│  │ - Google Sign-In │  │ - profiles      │  │ - Uploaded content   │ │
+│  └─────────────────┘  │ - playlists      │  └──────────────────────┘ │
+│                        │ - settings       │                          │
+│                        │ - analytics      │                          │
+│                        │ - chat_history   │                          │
+│                        └─────────────────┘                          │
+└──────────────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                      CLIENT-SIDE STORAGE                              │
+│                                                                      │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────────────┐ │
+│  │ IndexedDB       │  │ localStorage    │  │ Capacitor Preferences│ │
+│  │ (via idb)       │  │ - theme prefs   │  │ - auth tokens        │ │
+│  │ - songs         │  │ - settings      │  │ - credentials        │ │
+│  │ - playlists     │  │ - gamification  │  │                      │ │
+│  │ - videos        │  │                 │  │                      │ │
+│  │ - chat_history  │  │                 │  │                      │ │
+│  │ - profiles      │  │                 │  │                      │ │
+│  └─────────────────┘  └─────────────────┘  └──────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Step-By-Step: What Happens When a User Plays a Song
+
+1. **User taps a song** in HomeView, LibraryView, or search results
+2. **App.tsx** receives the event and calls `playSong(song)` on the `audioEngine` service
+3. The `audioEngine` (TypeScript) checks if the song has a `url` or `nativeUrl`:
+   - **Local file**: Opens via `Capacitor Filesystem.readFile()` or uses a device content URI
+   - **Streaming URL**: Loads the URL directly into an `<audio>` element or Web Audio API
+   - **Radio stream**: Routes through the `smoothAudioPlayer` service for buffered streaming
+4. `audioEngine.createAudioContext()` initializes a Web Audio API chain:
+   ```
+   Source → Preamp → EQ Band 1-10 → Bass Boost → Volume → Delay → 
+   LPF → HPF → Compressor → Analyser → Destination
+   ```
+5. The `AudioContext` processes the audio and sends it to speakers
+6. **Visualizer** subscribes to `analyserNode.getByteFrequencyData()` for real-time graphics
+7. **MiniPlayer** and **PlayerOverlay** update their UI state via React context/hooks
+8. **Background** (if Android): `MusicService.java` runs as a foreground service, showing a notification with play/pause/next/prev controls
+9. **Gamification**: `addXpClientSide()` is called (+2 XP per play, +5 for completing a song), streaks are checked
+10. **History**: `useHistory` records the song play with timestamp
+11. **Analytics**: `listening_stats` tracks play count, top artists, listening time
+12. **If online and premium**: Firestore syncs the play event for cross-device history
+
+---
+
+## 📁 SECTION 4: COMPLETE FILE STRUCTURE
+
+```
+mwijay-music-app/
 │
-├── src/ / components/ / services/ / utils/ / hooks/   # FRONTEND (React TS + Web Audio)
-│   ├── components/
-│   │   ├── db.ts             # IndexedDB Initializer & Deep Merging schemas
-│   │   ├── LevelUpToast.tsx  # Framer-motion leveling boundary celebrator
-│   │   ├── ProfileView.tsx   # Glassmorphic stats dashboards & weekly streak calendar bubble grids
-│   │   ├── EqualizerModal.tsx # EQ slider interface
-│   │   └── AudioFxModal.tsx  # DSP vocal effects grids
-│   │
-│   ├── services/
-│   │   ├── audioEngine.ts    # Tone.js 3-Band Parametric EQ & presets router
-│   │   └── audioAnalyzer.ts  # Meyda.js offline BPM, Key, and Mood classifiers
-│   │
-│   ├── utils/
-│   │   ├── gamification.ts   # Progression calculations, streak buffers, and XP mappings
-│   │   └── helpers.ts        # Dynamic colors, dominant color picker, and audio fading utilities
-│   │
-│   ├── hooks/
-│   │   ├── useBackgroundScanner.ts # Local file background scanner
-│   │   └── useBackgroundMedia.ts   # HTML5 Lock-screen controls (MediaSession)
-│   │
-│   └── App.tsx               # Central React application router & reactive Audio engine synchronizer
+├── App.tsx                          # 🎯 MAIN ENTRY — 3200+ line React app with all views, state, routing
+├── index.tsx                        # ReactDOM.createRoot render entry point
+├── index.html                       # Vite HTML template with app mount point
+├── index.css                        # Global CSS, tailwind directives, custom properties
+├── vite.config.ts                   # Vite config with React plugin + PWA + Tailwind
+├── tsconfig.json                    # TypeScript configuration
+├── tsconfig.node.json               # TypeScript config for Node (server.ts)
+├── package.json                     # All npm dependencies, scripts, metadata
+├── package-lock.json                # Locked dependency versions
+├── .env.example                     # Template for required environment variables (git-committed)
+├── .env                             # 🔒 SECRET: Actual environment variables (git-ignored)
+├── .gitignore                       # Git ignore rules
+├── env.d.ts                         # TypeScript ambient declarations for env variables
+├── types.ts                         # 🧱 ALL TYPE DEFINITIONS: Song, Playlist, Video, User, etc.
+├── constants.ts                     # App-wide constants: colors, themes, nav items, achievements list
+├── manifest.json                    # PWA web app manifest
+├── metadata.json                    # App metadata for stores
+├── crash_log.txt                    # Runtime crash log (debugging file)
+├── server.ts                        # 🌐 EXPRESS SERVER: Charts API, Cloudinary, Vite/Serve SPA
+├── capacitor.config.ts              # Capacitor configuration for Android/iOS builds
+├── google-services.json             # 🔒 SECRET: Firebase Android config
+├── firebase-applet-config.json      # Firebase web app config
+├── firebase-blueprint.json          # Firestore security rules blueprint
+├── firestore.rules                  # Firestore security rules deployed
+├── icon-192.png                     # PWA icon 192x192
+├── icon-512.png                     # PWA icon 512x512
 │
-├── capacitor.config.ts       # Capacitor native bridge configuration
-├── package.json              # Client dependencies (Tone, Meyda, Capacitor)
-└── README.md                 # Technical Architecture Documentation
+├── components/                      # 🧩 ALL REACT COMPONENTS
+│   ├── App.tsx                      # Duplicate reference — actual main in root
+│   ├── HomeView.tsx                 # 🏠 Main landing: For You, recent, quick actions
+│   ├── LibraryView.tsx              # 📚 Song library with search, sorting, filtering
+│   ├── LibraryFilters.tsx           # Filter chips for library (genre, mood, date)
+│   ├── ReelsView.tsx                # 📱 Short-form vertical video reels
+│   ├── RadioView.tsx                # 📻 Internet radio station browser & player
+│   ├── CreateView.tsx               # ✨ Create content (mood cards, wisdom, reels)
+│   ├── SettingsView.tsx             # ⚙️ Full settings panel (18+ setting categories)
+│   ├── SettingsToggle.tsx           # Reusable toggle switch component
+│   ├── ProfileView.tsx              # 👤 User profile display
+│   ├── PlayerOverlay.tsx            # ▶️ Full-screen now playing view with lyrics/visuals
+│   ├── MiniPlayer.tsx               # 🎵 Bottom mini player bar (always visible)
+│   ├── Header.tsx                   # Top navigation header with search, actions
+│   ├── Nerve.tsx                    # ⚡ Animated neural network background effect
+│   ├── FluidBackground.tsx          # 🌊 Animated fluid/particle background
+│   ├── BackgroundEffects.tsx        # Background visual effects manager
+│   ├── AudioTest.tsx                # Audio system diagnostic tool
+│   ├── SongListItem.tsx             # Individual song row in lists
+│   ├── HorizontalSongScroller.tsx   # Horizontal scrollable song cards
+│   ├── SongDetailsModal.tsx         # Modal with full song details & metadata
+│   ├── PlaylistView.tsx             # Full playlist view with songs
+│   ├── Playlist.tsx                 # Playlist card component
+│   ├── PlaylistManagerModal.tsx     # Modal for managing playlist songs
+│   ├── CreatePlaylistModal.tsx      # Modal for creating new playlists
+│   ├── EditPlaylistModal.tsx        # Modal for editing playlist details
+│   ├── ImportPlaylistModal.tsx      # Import playlists from other services
+│   ├── CreateRadioPlaylistModal.tsx # Create radio station playlists
+│   ├── CreateReelPlaylistModal.tsx  # Create reel playlists
+│   ├── ReelPlaylistView.tsx         # View a reel playlist
+│   ├── ManageRadioHubView.tsx       # Admin: manage radio stations
+│   ├── ManageReelsView.tsx          # Admin: manage reels content
+│   ├── ForYouSection.tsx            # AI-powered recommendation section
+│   ├── OnlineDiscoveryView.tsx      # Discover online music from all sources
+│   ├── OnlineSearchLoader.tsx       # Loading state for online search
+│   ├── ArtistView.tsx               # Artist detail page with discography
+│   ├── SpecialPlaylistCard.tsx      # Featured/curated playlist card
+│   ├── MyContentView.tsx            # User's created content gallery
+│   ├── AddWisdomModal.tsx           # Create wisdom/quote cards
+│   ├── AddMoodModal.tsx             # Add mood-based content
+│   ├── AddReelsModal.tsx            # Add new reels
+│   ├── AddSongsModal.tsx            # Add songs to a context
+│   ├── WisdomCardView.tsx           # Browse wisdom cards
+│   ├── MoodEmojiModal.tsx           # Emoji mood picker
+│   ├── AudioFxModal.tsx             # Audio effects panel (reverb, delay, etc.)
+│   ├── EqualizerModal.tsx           # 10-band equalizer with presets
+│   ├── VisualizerModal.tsx          # Audio visualizer selector
+│   ├── Visualizer.tsx               # Real-time audio visualization
+│   ├── MasteringStudioModal.tsx     # AI audio mastering controls
+│   ├── SleepTimerModal.tsx          # Set sleep timer
+│   ├── UpNextQueue.tsx              # Upcoming songs queue
+│   ├── ZenModeScreen.tsx            # Distraction-free fullscreen player
+│   ├── PartyModeView.tsx            # Collaborative party queue
+│   ├── SimpleMode.tsx               # Simplified UI wrapper
+│   ├── SimpleModeHomeView.tsx       # Simple mode home screen
+│   ├── SimpleModeSettingsView.tsx   # Simple mode settings
+│   ├── MusicQuizView.tsx            # 🎮 Guess the song game
+│   ├── CommentsModal.tsx            # Comments on songs/reels
+│   ├── LyricsView.tsx               # Real-time synced lyrics display
+│   ├── LyricsAnalysis.tsx           # AI lyrics analysis
+│   ├── TranscriptionView.tsx        # Audio transcription viewer
+│   ├── TranscriptionModal.tsx       # Transcription modal
+│   ├── KaraokePermission.tsx        # Microphone permission for karaoke
+│   ├── CoverArtPickerModal.tsx      # Pick/upload cover art
+│   ├── EmojiPickerModal.tsx         # Emoji picker for playlists
+│   ├── CameraCaptureModal.tsx       # Camera capture for profile/cover
+│   ├── VideoPlayer.tsx              # Native video player for reels
+│   ├── ShareablePreviewModal.tsx    # Shareable card preview
+│   ├── DailyQuote.tsx               # Daily wisdom quote card
+│   ├── Notification.tsx             # In-app notification toast
+│   ├── UploadToast.tsx              # Upload progress toast
+│   ├── AchievementUnlockedToast.tsx # 🏆 Achievement popup
+│   ├── LevelUpToast.tsx             # ⬆️ Level up notification
+│   ├── MultiStepLoader.tsx          # Animated multi-step progress loader
+│   ├── NeonGlowModal.tsx            # Neon glow effect modal
+│   ├── ClearDataModal.tsx           # Confirm data clearing
+│   ├── TtsOverlay.tsx               # Text-to-speech overlay
+│   ├── Confetti.tsx                 # 🎊 Confetti animation
+│   ├── Aurora.tsx                   # Aurora borealis background effect
+│   ├── EdgeLighting.tsx             # Edge lighting effect
+│   ├── BeatSyncEffects.tsx          # Visual effects synced to beat
+│   ├── CreativeEffects.tsx          # Creative visual effects toolkit
+│   ├── TextGenerateEffect.tsx       # Typewriter text animation
+│   ├── BlurText.tsx                 # Blur reveal text animation
+│   ├── BubbleButton.tsx             # Animated bubble button
+│   ├── AnimatedButton.tsx           # General animated button
+│   ├── AnimatedList.tsx             # Animated list with staggered entries
+│   ├── AnimatedCoverArt.tsx         # Animated cover art transitions
+│   ├── AnimatedThemeToggler.tsx     # Theme toggle with animation
+│   ├── ThemeToggler.tsx             # Light/dark theme toggle
+│   ├── FeatureFlag.tsx              # Remote config feature flag wrapper
+│   ├── Announcement.tsx             # In-app announcement banner
+│   ├── MaintenanceMode.tsx          # Maintenance mode overlay
+│   ├── AssistantView.tsx            # 🤖 AI Chat Assistant
+│   ├── AssistantFab.tsx             # Floating action button for assistant
+│   ├── AssistantSettingsView.tsx    # Assistant configuration
+│   ├── MwijayAssistantButton.tsx    # Branded assistant trigger button
+│   ├── ChatHistoryView.tsx          # Chat history browser
+│   ├── TypingIndicator.tsx          # AI typing indicator
+│   ├── AdminView.tsx                # 🔐 Admin panel for content management
+│   ├── AnalyticsView.tsx            # 📊 Listening stats analytics dashboard
+│   ├── HelpView.tsx                 # ❓ Help & FAQ
+│   ├── CustomizeAppearanceView.tsx  # 🎨 Theme customizer
+│   ├── CustomizeParticlesView.tsx   # Particle effect customizer
+│   ├── RingtoneMakerModal.tsx       # Create ringtones from songs
+│   ├── DiscoverCard.tsx             # Music discovery card
+│   ├── Filters.tsx                  # Reusable filter component
+│   ├── FilterSourceModal.tsx        # Filter music sources
+│   ├── CollapsibleSection.tsx       # Collapsible UI section
+│   ├── MarqueeText.tsx              # Scrolling marquee text
+│   ├── BriefWelcome.tsx             # First-launch welcome
+│   ├── Onboarding.tsx               # Multi-step onboarding wizard
+│   ├── PermissionsOnboarding.tsx    # Permission requests during onboarding
+│   ├── TutorialModal.tsx            # Feature tutorial modal
+│   ├── Loader.tsx                   # Loading spinner
+│   ├── ScrollToCurrentFab.tsx       # FAB to scroll to current song
+│   ├── AudioTest.tsx                # Audio diagnostic tool
+│   ├── MusicianTools.tsx            # Pro musician toolset
+│   ├── RadioStationList.tsx         # List of radio stations
+│   ├── RadioLoader.tsx              # Radio loading state
+│   ├── RadioCategoryBrowser.tsx     # Browse radio by category
+│   ├── db.ts                        # 🗄️ IndexedDB wrapper — all local data operations
+│   ├── constants.ts                 # Component-level constants (local to components/)
+│   ├── useAssistant.ts              # Assistant hook (component-adjacent)
+│   │
+│   ├── auth/                        # 🔐 Authentication components
+│   │   ├── AuthModal.tsx            # Auth modal container
+│   │   ├── SignIn.tsx               # Sign in form
+│   │   ├── SignUp.tsx               # Sign up form
+│   │   ├── ForgotPassword.tsx       # Password reset
+│   │   └── GuestModeBanner.tsx      # Guest mode notification banner
+│   │
+│   ├── history/                     # 📜 Listening history
+│   │   ├── HistoryPage.tsx          # History timeline page
+│   │   └── HistoryItem.tsx          # Individual history entry
+│   │
+│   ├── notes/                       # 📝 Music notes/annotations
+│   │   └── (note components)
+│   │
+│   ├── profile/                     # 👤 User profile
+│   │   ├── ProfilePage.tsx          # Full profile page
+│   │   ├── EditProfile.tsx          # Profile editor
+│   │   └── ProfileStats.tsx         # Profile statistics
+│   │
+│   ├── reels/                       # 📱 Reels-specific components
+│   │   └── (reel sub-components)
+│   │
+│   ├── social/                      # 🤝 Social features
+│   │   ├── LikeButton.tsx           # Animated like heart
+│   │   ├── LikeAnimation.tsx        # Particle heart animation
+│   │   ├── LikedSongsPage.tsx       # Liked songs collection
+│   │   └── PlayCount.tsx            # Play count display
+│   │
+│   └── video/                       # 🎬 Video components
+│       └── (video sub-components)
+│
+├── services/                        # ⚙️ ALL SERVICE LAYER MODULES
+│   ├── firebase.ts                  # Firebase init, Firestore helpers, auth listener
+│   ├── authService.ts               # Auth operations (sign in, sign up, sign out)
+│   ├── aiService.ts                 # Gemini AI integration for chat & mood DJ
+│   ├── audioEngine.ts               # 🎵 CORE: Web Audio API engine with full DSP chain
+│   ├── audioPlayer.ts               # Audio playback abstraction layer
+│   ├── smoothAudioPlayer.ts         # Buffered/preloaded smooth audio playback
+│   ├── AudioCore.ts                 # Low-level audio context management
+│   ├── AudioEffectsEngine.ts        # Advanced audio effects processing
+│   ├── AudioFader.ts                # Crossfade and gain fades
+│   ├── audioAnalyzer.ts             # Audio analysis (BPM, keys, loudness)
+│   ├── masteringService.ts          # AI mastering processing
+│   ├── mediaSessionService.ts       # Media Session API integration
+│   ├── musicScanService.ts          # Device media scanning
+│   ├── fileScannerService.ts        # Deep file system scanning
+│   ├── historyService.ts            # History CRUD operations
+│   ├── profileService.ts            # Profile CRUD + Firestore sync
+│   ├── likesService.ts              # Like/unlike operations
+│   ├── playCountService.ts          # Play count tracking
+│   ├── onlineReelsService.ts        # Online reels content fetching
+│   ├── recommendationService.ts     # AI recommendation engine
+│   ├── lyricsAiService.ts           # AI lyrics generation & sync
+│   ├── microphoneService.ts         # Microphone access for karaoke
+│   ├── quotesService.ts             # Quote fetching/management
+│   ├── wikipediaService.ts          # Wikipedia API for artist info
+│   ├── notificationService.ts       # Local notifications
+│   ├── statusBarService.ts          # Status bar visibility control
+│   ├── permissionsService.ts        # Runtime permission requests
+│   ├── shareService.ts              # Share functionality
+│   ├── crashReportService.ts        # Error boundary crash reporting
+│   ├── analyticsService.ts          # Analytics event tracking
+│   ├── remoteConfigService.ts       # Firebase Remote Config
+│   └── cloudinaryService.ts         # Cloudinary image upload
+│
+├── hooks/                           # 🪝 ALL CUSTOM REACT HOOKS
+│   ├── useAudioPlayer.ts            # Audio playback state management
+│   ├── useAudioFx.ts                # Audio effects state
+│   ├── useAssistant.ts              # AI Assistant state & logic
+│   ├── useAuth.ts                   # Auth state & operations
+│   ├── useHistory.ts                # History state
+│   ├── useLikes.ts                  # Likes state
+│   ├── useBackgroundMedia.ts        # Background audio handling
+│   ├── useBackgroundScanner.ts      # Background file scanning
+│   ├── useMediaScanner.ts           # Media scanning UI state
+│   ├── useTtsQueue.ts               # Text-to-speech queue
+│   ├── useKeyboardHandler.ts        # Keyboard visibility handler
+│   ├── useInterruptibleScroll.ts    # Smooth scroll with interrupt
+│   ├── useRemoteConfig.ts           # Remote config hook
+│   ├── assistantKnowledge.ts        # AI knowledge base content
+│   └── cookbook.json                # Recipe/cookbook data for assistant
+│
+├── utils/                           # 🛠️ UTILITY FUNCTIONS
+│   ├── helpers.ts                   # 700+ line utility belt: truncate, fadeAudio, 
+│   │                                #   scanDevice, processAudio, getDominantColor,
+│   │                                #   forceHttps, sortSongs, emojiToDataUrl, etc.
+│   ├── audioUtils.ts                # Audio utility functions
+│   ├── gamification.ts              # XP, levels, streaks, achievements logic
+│   ├── performance.ts               # Performance monitoring utilities
+│   └── errorBoundary.tsx            # React error boundary component
+│
+├── styles/                          # 🎨 STYLE SHEETS
+│   ├── layout.css                   # Core layout styles
+│   ├── lyrics.css                   # Karaoke/lyrics styles
+│   ├── library.css                  # Library view styles
+│   ├── marquee.css                  # Marquee animation styles
+│   └── smooth-scroll.css            # Smooth scroll behavior
+│
+├── contexts/                        # 🌐 REACT CONTEXTS
+│   └── AuthContext.tsx              # Authentication context provider
+│
+├── data/                            # 📊 STATIC DATA
+│   └── content.ts                   # Hardcoded content data
+│
+├── plugins/                         # 🔌 CAPACITOR PLUGINS
+│   ├── MediaControl.ts              # Media control plugin bridge
+│   └── MusicControlPlugin.ts        # Music control TypeScript plugin
+│
+├── android/                         # 📱 ANDROID NATIVE PROJECT
+│   ├── build.gradle                 # Root build.gradle
+│   ├── capacitor.settings.gradle    # Capacitor Android settings
+│   ├── gradle.properties            # Gradle properties
+│   ├── gradlew / gradlew.bat        # Gradle wrapper
+│   ├── settings.gradle              # Gradle settings
+│   ├── variables.gradle             # Build variables
+│   ├── gradle/                      # Gradle wrapper files
+│   └── app/
+│       ├── build.gradle             # App module build config
+│       └── src/main/
+│           ├── AndroidManifest.xml   # Android permissions, services, activities
+│           ├── java/mwijay/music/app/
+│           │   ├── MainActivity.java       # Main Android activity
+│           │   ├── MusicService.java       # 🎵 Background music playback service
+│           │   ├── MusicPlugin.java        # Capacitor plugin bridge for music
+│           │   ├── MediaScanner.kt         # Kotlin media file scanner
+│           │   ├── MediaPlugin.kt          # Kotlin media plugin
+│           │   └── MediaPlaybackService.kt # Kotlin media playback service
+│           └── res/
+│               ├── values/
+│               │   ├── strings.xml         # String resources
+│               │   ├── styles.xml          # Android styles
+│               │   └── colors.xml          # Color resources
+│               ├── drawable/
+│               │   ├── ic_notification.xml  # Notification icon
+│               │   ├── ic_play.xml          # Play icon
+│               │   ├── ic_pause.xml         # Pause icon
+│               │   ├── ic_next.xml          # Next track icon
+│               │   ├── ic_prev.xml          # Previous track icon
+│               │   ├── ic_heart.xml         # Heart icon
+│               │   ├── ic_heart_filled.xml  # Filled heart icon
+│               │   ├── ic_music_note.xml    # Music note icon
+│               │   ├── ic_stop.xml          # Stop icon
+│               │   ├── ic_video.xml         # Video icon
+│               │   ├── ic_podcast.xml       # Podcast icon
+│               │   ├── ic_reel.xml          # Reel icon
+│               │   ├── ic_radio.xml         # Radio icon
+│               │   ├── ic_launcher_background.xml
+│               │   └── ic_launcher_foreground.xml
+│               └── mipmap-anydpi-v26/
+│                   └── ic_launcher_round.xml
+│
+├── android_native/                  # 📱 ALTERNATIVE NATIVE PROJECT
+│   ├── AndroidManifest_ADDITIONS.xml # Additional manifest entries
+│   └── app/src/main/
+│       ├── res/drawable/            # Same icon set for alternative build
+│       └── java/com/mwijay/music/
+│           ├── MainActivity.kt      # Kotlin main activity
+│           ├── MusicPlugin.kt       # Kotlin music plugin
+│           └── MusicService.kt      # Kotlin music service
+│
+└── app/                             # 🐍 PYTHON BACKEND
+    ├── server.py                    # 🌐 FastAPI main server (744 lines)
+    ├── __init__.py                  # Python package init
+    │
+    ├── ai/                          # 🤖 AI MODULES
+    │   ├── __init__.py
+    │   └── mood_dj.py               # MoodDJ — AI playlist generator via Gemini
+    │
+    ├── analytics/                   # 📊 ANALYTICS MODULES
+    │   ├── __init__.py
+    │   ├── listening_stats.py       # Listening statistics calculator
+    │   └── wrapped.py               # "Mwijay Wrapped" annual report generator
+    │
+    ├── audio/                       # 🎵 AUDIO DSP MODULES
+    │   ├── __init__.py
+    │   ├── audio_engine.py          # MwijayAudioEngine — core audio processing
+    │   ├── analyzer.py              # Audio analysis (BPM, key, spectral)
+    │   ├── beat_detector.py         # Real-time beat detection
+    │   ├── separator.py             # Stem separation (vocals/instruments)
+    │   └── effects.py               # Audio effects processing
+    │
+    └── sources/                     # 🔍 MUSIC SOURCE INTEGRATIONS
+        ├── __init__.py
+        ├── unified_search.py        # UnifiedSearch — aggregates all sources
+        ├── ytmusic_source.py        # YouTube Music integration
+        └── other_sources.py         # All other sources: Jamendo, Deezer, Audius,
+                                     # Internet Archive, CCMixter, HearThis,
+                                     # LibriVox, LastFM, Genius, TheAudioDB, iTunes
 ```
 
 ---
 
-## 🚀 Running, Bundling & Deploying
+## 🔧 SECTION 5: INSTALLATION & SETUP
 
-### 1. Initial Setup
-Install the dependencies:
+### Prerequisites
+
+| Dependency | Version | Download Link |
+|-----------|---------|---------------|
+| Node.js | 18+ | [https://nodejs.org/](https://nodejs.org/) |
+| npm | 9+ | (ships with Node.js) |
+| Python | 3.10+ | [https://www.python.org/downloads/](https://www.python.org/downloads/) |
+| pip | 23+ | (ships with Python) |
+| Android Studio | Latest | [https://developer.android.com/studio](https://developer.android.com/studio) |
+| Git | Latest | [https://git-scm.com/](https://git-scm.com/) |
+| Firebase Account | Free | [https://console.firebase.google.com/](https://console.firebase.google.com/) |
+| Gemini API Key | Free tier | [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/mwijay12/Mwijay-Music-App.git
+cd Mwijay-Music-App
+```
+
+**Expected output:**
+```
+Cloning into 'Mwijay-Music-App'...
+remote: Enumerating objects: ...
+Receiving objects: 100% (...), done.
+```
+
+### Step 2: Install Frontend Dependencies
+
 ```bash
 npm install
 ```
 
-### 2. Local Development (Web View)
-Launch the local Vite server:
+**Expected output:**
+```
+added 1850 packages in 45s
+237 packages are looking for funding
+```
+
+### Step 3: Install Python Dependencies
+
+```bash
+cd app
+pip install -r requirements.txt
+cd ..
+```
+
+⚠️ **If `requirements.txt` doesn't exist**, install the core packages manually:
+
+```bash
+pip install fastapi uvicorn ytmusicapi requests pydantic librosa spleeter numpy scipy python-dotenv
+```
+
+**Expected output:**
+```
+Successfully installed fastapi-0.115.0 uvicorn-0.30.0 ytmusicapi-1.8.0 ...
+```
+
+### Step 4: Set Up Firebase
+
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create a new project (or use existing)
+3. Enable **Authentication** → Sign-in methods: Email/Password + Google
+4. Enable **Cloud Firestore** → Start in test mode
+5. Register a **Web App** → Copy the config object
+6. Register an **Android app** → Package name: `mwijay.music.app` → Download `google-services.json`
+
+### Step 5: Configure Environment Variables
+
+Copy `.env.example` to `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` with your actual keys:
+
+```env
+# === GEMINI AI ===
+VITE_GEMINI_API_KEY=your_gemini_api_key_here
+
+# === FIREBASE ===
+VITE_FIREBASE_API_KEY=your_firebase_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=1:123456789:web:abc123
+
+# === CLOUDINARY (Optional — for image uploads) ===
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+VITE_CLOUDINARY_UPLOAD_PRESET=ml_default
+```
+
+**Where to get each value:**
+
+| Variable | How to Get |
+|----------|-----------|
+| `VITE_GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey) → Create API key |
+| `VITE_FIREBASE_*` | Firebase Console → Project Settings → Web App → Config object |
+| `CLOUDINARY_*` | [Cloudinary](https://cloudinary.com/) → Dashboard → Account Details |
+
+### Step 6: Place Firebase Config Files
+
+1. Copy `google-services.json` (from Firebase Android setup) to project root
+2. Update `firebase-applet-config.json` with your Firebase Web App config:
+
+```json
+{
+  "apiKey": "your-api-key",
+  "authDomain": "your-project.firebaseapp.com",
+  "projectId": "your-project-id",
+  "storageBucket": "your-project.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123456789:web:abc123"
+}
+```
+
+### Step 7: Start the Development Server
+
+**Option A: Web Only (Browser)**
+
 ```bash
 npm run dev
 ```
 
-### 3. Verify TypeScript Type-Safety
-To run the typechecker across all typescript and tsx files:
-```bash
-npx tsc --noEmit
+**Expected output:**
+```
+Server running on http://localhost:3000
 ```
 
-### 4. Build Production Bundle
-To bundle, optimize, and minify all static web assets:
+Open your browser to `http://localhost:3000`
+
+**Option B: Python Backend Only**
+
+```bash
+cd app
+uvicorn app.server:app --reload --port 8000
+```
+
+**Expected output:**
+```
+INFO:     Uvicorn running on http://0.0.0.0:8000
+INFO:     Application startup complete.
+```
+
+**Option C: Full Stack (Both Servers)**
+
+Terminal 1:
+```bash
+npm run dev
+```
+
+Terminal 2:
+```bash
+cd app && uvicorn app.server:app --reload --port 8000
+```
+
+### Step 8: Build for Android
+
+```bash
+npm run build
+npx cap sync android
+npx cap open android
+```
+
+This opens Android Studio. Then:
+1. Wait for Gradle sync
+2. Connect an Android device or start an emulator
+3. Click **Run** (green triangle)
+
+### Verify It's Working
+
+Checklist to confirm everything is operational:
+
+- [ ] `http://localhost:3000` loads the Mwijay Music App UI
+- [ ] `http://localhost:3000/api/health` returns `{"status":"ok"}`
+- [ ] `http://localhost:3000/api/charts/deezer?limit=3` returns JSON with 3 songs
+- [ ] Python server at `http://localhost:8000/docs` shows Swagger UI
+- [ ] Search for a song works (local or online)
+- [ ] Play a song — audio comes through speakers
+- [ ] Equalizer sliders adjust audio in real-time
+- [ ] Dark/light theme toggle works
+- [ ] If using Android: background playback continues after closing app
+
+### Common Installation Errors & Fixes
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Cannot find module 'express'` | Dependencies not installed | Run `npm install` |
+| `VITE_GEMINI_API_KEY is not set` | Missing .env file | Copy `.env.example` to `.env` and fill in values |
+| `Failed to fetch /api/charts/...` | Backend not running | Start Express server with `npm run dev` |
+| `Module not found: Can't resolve './components/X'` | Missing component file | Check file exists and path is correct |
+| `Error: listen EADDRINUSE :::3000` | Port 3000 already in use | Kill existing process or change PORT in server.ts |
+| `Android build fails: Could not find google-services.json` | Missing Firebase config | Download `google-services.json` from Firebase Console |
+| `Python: ModuleNotFoundError: No module named 'app'` | Running from wrong directory | Run from project root `cd ..` then `uvicorn app.server:app` |
+| `Firebase: FirebaseError: Failed to get document` | Firestore not created | Create Firestore database in Firebase Console |
+| `Capacitor: ERR_CAPACITOR_SYNC_FAILED` | Android build issues | Ensure Android Studio is properly installed |
+| `AudioContext not allowed` | Browser autoplay policy | User must interact with page first (tap Play button) |
+
+---
+
+## 🎮 SECTION 6: HOW TO USE IT
+
+### 6.1 Playing Music
+
+**What it does:** Play any song from your library, online search results, or radio.
+
+**How to do it:**
+1. Go to **Library** tab → Tap any song → Audio starts playing
+2. Or go to **Home** → Tap "For You" section → Tap any card
+3. Or go to **Discover** → Search for an artist → Tap result
+
+**Mini Player** appears at the bottom. Tap it to open **PlayerOverlay** with full controls:
+- Play/Pause, Next/Previous, Shuffle, Repeat
+- Progress slider (tap to seek)
+- Volume slider
+- Like button (❤️)
+- Lyrics button (if available)
+- Equalizer button
+- Queue button (see upcoming songs)
+
+### 6.2 Searching Music Online
+
+**What it does:** Search across 10+ music sources simultaneously.
+
+**The exact flow:**
+1. Tap the search icon in the header
+2. Type "Diamond Platnumz" (or any query)
+3. Results appear from: YouTube Music, Deezer, Jamendo, Audius, Internet Archive, CCMixter, HearThis, LibriVox, etc.
+4. Each result shows: song title, artist, album art, source badge
+5. Tap any result → song preview plays (30s clips where available)
+
+### 6.3 Using the Mood DJ
+
+**What it does:** Generate a playlist based on how you feel — described in text or emojis.
+
+**Text Mood:**
+1. Go to **Create** tab → "Mood DJ"
+2. Type: `"feeling pumped for the gym"`
+3. Tap "Generate Playlist"
+4. AI creates 15 songs matching this mood
+5. Tap "Play All" or individual songs
+
+**Emoji Mood:**
+1. Go to **Create** tab → Tap emoji button 😊
+2. Select emojis: `🔥💪🏃`
+3. Tap Generate → Same result
+
+**Behind the scenes:** The Python backend sends your input to Gemini AI, which returns structured song recommendations (title + artist). The system then searches each music source for actual streamable versions.
+
+### 6.4 Equalizer & Audio Effects
+
+**What it does:** Shape your sound with a full 10-band EQ and audio effects.
+
+**How to access:**
+1. Open **PlayerOverlay** (tap MiniPlayer)
+2. Tap the EQ icon (sliders icon)
+3. Use sliders for bands 32Hz–16kHz
+4. Or select a preset: **Bass Boost, Pop, Rock, Classical, Dance, Jazz, Electronic, Speech, Custom**
+
+**Available effects (in AudioFxModal):**
+- Bass Boost (toggle + intensity slider)
+- Reverb (room size + wet/dry mix)
+- Delay (time + feedback)
+- Compressor (threshold + ratio)
+
+### 6.5 Creating Playlists
+
+**What it does:** Organize songs into custom playlists.
+
+```bash
+# No CLI — done in the app:
+1. Library tab → Playlists section → "+" button
+2. Enter name (e.g. "Workout Bangers")
+3. Choose emoji and cover art (or let AI generate one)
+4. Tap "Create"
+5. Search and add songs
+```
+
+### 6.6 Watching Reels
+
+**What it does:** Short-form vertical video content, like TikTok for music.
+
+1. Go to **Reels** tab
+2. Swipe up/down to navigate
+3. Tap heart to like, tap comment to add comments
+4. Tap the song title to open full player
+
+### 6.7 Listening to Radio
+
+**What it does:** Stream internet radio stations from around the world.
+
+1. Go to **Radio** tab
+2. Browse by category: Pop, Rock, Jazz, News, Talk, etc.
+3. Or search for a station name
+4. Tap any station → starts streaming
+5. Tap heart to favorite a station
+
+### 6.8 Using the AI Assistant
+
+**What it does:** Chat with an AI that knows about music, artists, and your listening habits.
+
+1. Tap the floating **Mwijay** button (bottom-right)
+2. Type anything: `"Who is the best afrobeats artist right now?"`
+3. Or: `"Recommend songs like 'Love Nwantiti'"`  
+4. Or: `"Tell me about the history of jazz"`  
+5. Assistant remembers context — you can have full conversations
+
+**Assistant capabilities:**
+- Music knowledge (artists, genres, history)
+- Song recommendations
+- Lyrics explanations
+- Music theory questions
+- Conversation memory (stored in IndexedDB)
+
+### 6.9 Gamification & Achievements
+
+**What it does:** Earn XP, level up, unlock achievements, and maintain streaks.
+
+**How to earn XP:**
+| Action | XP Earned |
+|--------|-----------|
+| Play a song | +2 XP |
+| Complete a song | +5 XP |
+| Like a song | +3 XP |
+| Create a playlist | +10 XP |
+| Daily login streak day | +15–50 XP |
+| Share a song | +20 XP |
+| Complete a music quiz | +25 XP |
+
+**Achievements include:**
+- "First Song" — Play your first song
+- "Melomaniac" — Play 100 songs
+- "Collector" — Create 5 playlists
+- "Streak Master" — 7-day login streak
+- "Explorer" — Search from 5 different sources
+
+**Check your progress:**
+1. Go to **Profile** tab
+2. See your level, XP bar, and achievements
+3. Tap any achievement to see how to unlock it
+
+### 6.10 API Endpoints
+
+#### Express Server (`http://localhost:3000`)
+
+**Health Check:**
+```bash
+curl http://localhost:3000/api/health
+```
+**Response:**
+```json
+{"status":"ok"}
+```
+
+**Get iTunes Charts:**
+```bash
+curl "http://localhost:3000/api/charts/itunes?country=us&limit=5"
+```
+**Response:**
+```json
+[
+  {
+    "id": "itunes-0",
+    "rank": 1,
+    "title": "Not Like Us",
+    "artist": "Kendrick Lamar",
+    "album": "GNX",
+    "albumArtUrl": "https://is1-ssl.mzstatic.com/image/thumb/...",
+    "url": "https://audio-ssl.itunes.apple.com/...",
+    "previewUrl": "https://audio-ssl.itunes.apple.com/...",
+    "duration": 30,
+    "source": "iTunes US Charts"
+  }
+]
+```
+
+**Get African Charts (via Deezer):**
+```bash
+curl "http://localhost:3000/api/charts/itunes?country=tz&limit=5"
+```
+**Response:** Same format, but sources from Deezer for Tanzania artists.
+
+**Get Deezer Global Chart:**
+```bash
+curl "http://localhost:3000/api/charts/deezer?limit=5"
+```
+
+**Get Cloudinary Upload Signature:**
+```bash
+curl http://localhost:3000/api/cloudinary-signature
+```
+**Response:**
+```json
+{
+  "signature": "abc123...",
+  "timestamp": 1719000000,
+  "cloudName": "your-cloud",
+  "apiKey": "123456789"
+}
+```
+
+#### Python FastAPI Server (`http://localhost:8000`)
+
+Full Swagger docs at `http://localhost:8000/docs`
+
+**Generate Mood Playlist:**
+```bash
+curl -X POST "http://localhost:8000/api/mood/playlist" \
+  -H "Content-Type: application/json" \
+  -d '{"user_input": "feeling relaxed and rainy day", "num_songs": 10}'
+```
+**Response:**
+```json
+{
+  "mood": "relaxed",
+  "playlist": [
+    {"title": "Rain", "artist": "Sleeping At Last", "reason": "matches rainy mood"},
+    {"title": "River Flows In You", "artist": "Yiruma", "reason": "calming piano"},
+    ...
+  ],
+  "vibe": "☔🌧️🎹"
+}
+```
+
+**Get Listening Stats:**
+```bash
+curl -X POST "http://localhost:8000/api/analytics/stats" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user_123"}'
+```
+
+**Generate "Wrapped" Report:**
+```bash
+curl -X POST "http://localhost:8000/api/analytics/wrapped" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user_123", "year": 2025}'
+```
+
+---
+
+## 🗄️ SECTION 7: DATABASE SCHEMA
+
+### Firestore Collections
+
+#### Collection: `users`
+Stores user authentication and basic profile data.
+
+| Field | Type | Example | Description | Indexed? |
+|-------|------|---------|-------------|----------|
+| `uid` | `string` | `"abc123..."` | Firebase Auth UID | ✅ Primary |
+| `email` | `string` | `"user@example.com"` | User email address | ✅ |
+| `displayName` | `string` | `"John Doe"` | Display name | ❌ |
+| `photoURL` | `string` | `"https://..."` | Profile picture URL | ❌ |
+| `createdAt` | `timestamp` | `June 22, 2026` | Account creation date | ❌ |
+| `lastLogin` | `timestamp` | `June 22, 2026` | Last login timestamp | ❌ |
+| `isGuest` | `boolean` | `false` | Guest mode flag | ❌ |
+
+#### Collection: `profiles`
+Extended user profile data.
+
+| Field | Type | Example | Description | Indexed? |
+|-------|------|---------|-------------|----------|
+| `userId` | `string` | `"uid_456"` | References `users.uid` | ✅ |
+| `bio` | `string` | `"Music lover from Tanzania 🎵"` | User biography | ❌ |
+| `favoriteGenres` | `array` | `["afrobeats", "bongo flava", "jazz"]` | Preferred music genres | ❌ |
+| `favoriteArtists` | `array` | `["Diamond Platnumz", "Burna Boy"]` | Top artists | ❌ |
+| `theme` | `string` | `"dark"` | Preferred theme | ❌ |
+| `xp` | `number` | `2500` | Gamification XP total | ❌ |
+| `level` | `number` | `12` | Current level | ❌ |
+| `achievements` | `array` | `["first_song", "collector"]` | Unlocked achievement IDs | ❌ |
+| `streak` | `object` | `{"count": 7, "lastDate": "..."}` | Daily login streak | ❌ |
+| `listeningTime` | `number` | `36000` | Total listening in seconds | ❌ |
+| `createdAt` | `timestamp` | `...` | Profile creation date | ❌ |
+| `updatedAt` | `timestamp` | `...` | Profile last updated | ❌ |
+
+#### Collection: `playlists`
+User-created playlists.
+
+| Field | Type | Example | Description | Indexed? |
+|-------|------|---------|-------------|----------|
+| `id` | `string` | `"pl_789"` | Auto-generated playlist ID | ✅ Primary |
+| `userId` | `string` | `"uid_456"` | Owner user ID | ✅ |
+| `name` | `string` | `"Workout Bangers"` | Playlist name | ❌ |
+| `emoji` | `string` | `"💪"` | Emoji icon | ❌ |
+| `coverImage` | `string` | `"https://..."` | Cover art URL | ❌ |
+| `bgColor` | `string` | `"#ff6b6b"` | Background color | ❌ |
+| `songIds` | `array` | `["s_001", "s_002"]` | Array of song IDs | ❌ |
+| `isPublic` | `boolean` | `false` | Shared/public flag | ❌ |
+| `createdAt` | `timestamp` | `...` | Creation timestamp | ❌ |
+| `updatedAt` | `timestamp` | `...` | Last modified | ❌ |
+
+#### Collection: `songs` (Cloud-synced)
+Songs that have been played and synced (not exhaustive — local IndexedDB is primary).
+
+| Field | Type | Example | Description | Indexed? |
+|-------|------|---------|-------------|----------|
+| `id` | `string` | `"s_001"` | Song ID | ✅ Primary |
+| `title` | `string` | `"Love Nwantiti"` | Song title | ✅ |
+| `artist` | `string` | `"CKay"` | Artist name | ✅ |
+| `album` | `string` | `"CKay The First"` | Album name | ❌ |
+| `albumArtUrl` | `string` | `"https://..."` | Album art URL | ❌ |
+| `duration` | `number` | `180` | Duration in seconds | ❌ |
+| `genre` | `string` | `"afrobeats"` | Genre classification | ❌ |
+| `source` | `string` | `"deezer"` | Source provider | ❌ |
+| `playCount` | `number` | `42` | Total plays | ❌ |
+| `lastPlayed` | `timestamp` | `...` | Last played timestamp | ❌ |
+
+#### Collection: `chat_history`
+AI Assistant conversation history (also stored locally in IndexedDB).
+
+| Field | Type | Example | Description | Indexed? |
+|-------|------|---------|-------------|----------|
+| `id` | `string` | `"ch_001"` | Chat session ID | ✅ Primary |
+| `userId` | `string` | `"uid_456"` | User ID | ✅ |
+| `messages` | `array` | `[...]` | Array of message objects | ❌ |
+| `title` | `string` | `"Music recommendations"` | Chat session title | ❌ |
+| `createdAt` | `timestamp` | `...` | Session start | ❌ |
+| `updatedAt` | `timestamp` | `...` | Last message time | ❌ |
+
+#### Collection: `analytics`
+Listening analytics data.
+
+| Field | Type | Example | Description | Indexed? |
+|-------|------|---------|-------------|----------|
+| `userId` | `string` | `"uid_456"` | User ID | ✅ |
+| `date` | `string` | `"2026-06-22"` | Date in YYYY-MM-DD | ✅ |
+| `songsPlayed` | `array` | `[...]` | Songs played that day | ❌ |
+| `totalListeningTime` | `number` | `5400` | Seconds listened | ❌ |
+| `topArtists` | `object` | `{"Diamond Platnumz": 15}` | Artist play counts | ❌ |
+| `topGenres` | `object` | `{"afrobeats": 25}` | Genre distribution | ❌ |
+
+### Local IndexedDB Stores (Primary Data Layer)
+
+| Store Name | Contents | Key Path | Why Local |
+|-----------|----------|----------|-----------|
+| `songs` | All scanned local songs + online songs | `id` | Primary music data store |
+| `playlists` | User playlists with song references | `id` | Works offline |
+| `videos` | Scanned video files and reels | `id` | Works offline |
+| `profiles` | User profile data | `userId` | Cached for speed |
+| `chat_history` | AI assistant conversations | `id` | Privacy + offline access |
+| `play_queue` | Current playback queue | `id` | Persistent queue across sessions |
+| `reel_playlists` | Reel playlists | `id` | Offline reel organization |
+| `radio_playlists` | Radio station collections | `id` | Persistent radio presets |
+
+### Relationships Between Collections
+
+```
+users (Firebase Auth)
+  ├── profiles (1:1 — one profile per user)
+  ├── playlists (1:N — user can have many)
+  ├── chat_history (1:N — user can have many chat sessions)
+  ├── analytics (1:N — daily analytics entries)
+  └── songs (M:N — many users can listen to many songs)
+
+playlists
+  └── songs (M:N via songIds array — many songs per playlist)
+```
+
+---
+
+## 🤖 SECTION 8: AI INTEGRATION DETAILS
+
+### AI Models Used
+
+| Model | Provider | Purpose | Why This Model |
+|-------|----------|---------|----------------|
+| `gemini-2.0-flash` | Google Gemini | Mood DJ playlist generation | Fast, free tier available, good at understanding mood/text |
+| `gemini-2.0-flash` | Google Gemini | AI Assistant chat | Same model — fast responses for conversational AI |
+| `gemini-2.0-flash` | Google Gemini | Lyrics analysis & generation | Good creative text generation |
+
+### Exact Prompts Used
+
+#### Mood DJ — Text Input Prompt
+
+```
+You are a music DJ AI. Your job is to create playlists based on someone's mood.
+
+The user says: "{user_input}"
+
+Pick {num_songs} songs that match this mood. 
+
+Return ONLY a JSON array of objects with:
+- title: string (song title)
+- artist: string (artist name)
+- reason: string (why this song matches)
+
+Example:
+```json
+[
+  {"title": "Example Song", "artist": "Example Artist", "reason": "This song is upbeat and energetic"}
+]
+```
+
+Be creative. Mix popular and lesser-known songs. Focus on the emotion first, genre second.
+```
+
+#### Mood DJ — Emoji Input Prompt
+
+```
+The user sent these emojis: "{emojis}"
+
+Interpret the emotional vibe these emojis represent and create {num_songs} songs that fit.
+
+Return ONLY a JSON array of objects with:
+- title: string
+- artist: string
+- reason: string
+
+Also include a "vibe" field at the top level with emoji representation of the mood.
+```
+
+#### AI Assistant — System Prompt
+
+```
+You are Mwijay AI, a music assistant built into the Mwijay Music App. 
+You are knowledgeable about:
+- Music history and genres
+- Artist discographies and biographies  
+- Music theory basics
+- Song recommendations
+- Music production and recording
+- World music (especially African music, Bongo Flava, Afrobeats, Amapiano)
+
+You have memory of past conversations with this user.
+Be conversational, helpful, and passionate about music.
+Keep responses concise but informative.
+
+Current context: The user is in a music app that plays both local files and streaming music.
+If they ask to play something, guide them to search for it in the app.
+```
+
+### How Prompts Are Constructed Dynamically
+
+```typescript
+// From aiService.ts (TypeScript side — sends requests to Python backend)
+const generateMoodPlaylist = async (userInput: string, numSongs: number) => {
+  const prompt = `
+You are a music DJ AI. Your job is to create playlists based on someone's mood.
+
+The user says: "${userInput}"
+
+Pick ${numSongs} songs that match this mood. 
+
+Return ONLY a JSON array of objects with:
+- title: string (song title)
+- artist: string (artist name)
+- reason: string (why this song matches this mood)
+
+Be creative. Mix popular and lesser-known songs. Focus on the emotion first, genre second.
+`.trim();
+
+  const response = await geminiModel.generateContent(prompt);
+  // Parse JSON from response
+  return JSON.parse(response.text());
+};
+```
+
+### Token Usage & Cost Estimates
+
+| Feature | Avg Tokens/Request | Cost/Request (Gemini 2.0 Flash) | Cost for 1000 Users/Week |
+|---------|-------------------|--------------------------------|-------------------------|
+| Mood Playlist Gen | 1200 input + 800 output | ~$0.00002 | $0.08 |
+| AI Chat Message | 500 input + 200 output | ~$0.000008 | $0.032 |
+| Lyrics Analysis | 1500 input + 500 output | ~$0.000025 | $0.10 |
+| Emoji Mood Parse | 300 input + 600 output | ~$0.00001 | $0.04 |
+
+**Pricing:** Gemini 2.0 Flash is **free** within generous limits (60 requests/min, 1500 requests/day on free tier). Paid tier: $0.10/1M input tokens, $0.40/1M output tokens.
+
+### Error Handling
+
+```
+1. AI returns invalid JSON:
+   → Retry with stricter prompt ("ONLY valid JSON, no markdown, no backticks")
+   → If fails again, return fallback: ["Happy" by Pharrell, "Good Vibrations" by Beach Boys]
+
+2. AI times out (>10s):
+   → Abort request, return error "Mood DJ is thinking too hard, try again"
+   → Client shows retry button
+
+3. AI returns empty array:
+   → Return curated fallback playlist based on broad mood category
+   → Log the failed input for debugging
+
+4. API key missing:
+   → Check if VITE_GEMINI_API_KEY is set
+   → Show "AI features disabled" message
+   → Fall back to offline recommendations
+
+5. Rate limited:
+   → Queue requests with exponential backoff (1s, 2s, 4s, 8s)
+   → Notify user "AI is busy, please wait a moment"
+```
+
+### Handling Bad AI Output
+
+| Bad Output | Detection | Handling |
+|-----------|-----------|----------|
+| Non-existent songs (hallucination) | Cannot detect perfectly | Search results will fail silently |
+| Duplicate recommendations | Deduplication logic | Filter out duplicates by title+artist |
+| Songs from wrong genre | Check against user's preference tags | Re-rank results |
+| Profane/inappropriate content | Filter with blacklist | Replace with safe default |
+| Songs not available on any source | Search across all 10 sources | Label as "May not be available" |
+
+### Ideas for Improving AI Quality
+
+1. **Add few-shot examples** — Include 2-3 example mood→playlist pairs in the prompt
+2. **Use Gemini's response schema** — Structured output instead of JSON parsing from text
+3. **RAG with music database** — Provide genre definitions and song metadata in context
+4. **User feedback loop** — Let users rate AI recommendations, fine-tune based on likes
+5. **Multi-turn refinement** — "Too upbeat" → "More acoustic" → iterative playlist building
+6. **Localized knowledge** — Fine-tune or add context for regional music (Bongo Flava, Amapiano)
+7. **Audio features analysis** — Use actual audio BPM, key, energy to match mood numerically
+8. **Hybrid recommendations** — Combine AI + collaborative filtering from listening history
+
+---
+
+## ⚠️ SECTION 9: CURRENT LIMITATIONS & KNOWN BUGS
+
+### Known Bugs
+
+| # | Bug | Steps to Reproduce | Severity | Status |
+|---|-----|-------------------|----------|--------|
+| 1 | **Player overlay closes when screen rotates** | Open PlayerOverlay → Rotate phone → Overlay closes | 🟡 Medium | Under investigation |
+| 2 | **Library search freezes with >500 songs** | Have 500+ songs → Search in library → App freezes for 2-3s | 🔴 High | Needs virtualization |
+| 3 | **EQ resets after changing tracks** | Set EQ custom → Next song → EQ back to default | 🟡 Medium | Needs state persistence |
+| 4 | **Deezer preview URLs expire after 30 min** | Load Deezer tracks → Wait 30 min → Play fails | 🟡 Medium | Need refresh mechanism |
+| 5 | **Reels video/audio sync drifts on long reels** | Play reel >60s → Audio desyncs from video | 🟡 Medium | Audio/video sync issue |
+| 6 | **Guest mode: data lost on cache clear** | Guest mode → Clear cache → All playlists gone | 🔴 High | No cloud backup for guests |
+| 7 | **AI Assistant contextual memory breaks after 20 messages** | Chat 20+ messages → Assistant forgets earlier context | 🟡 Medium | Context window management needed |
+| 8 | **Android notification controls stop after 30 min** | Play background → 30 min later → Notification VC no longer responds | 🟡 Medium | Service restart issue |
+| 9 | **Cover art fails on some local MP3s** | Play local MP3 without embedded art → Shows broken image | 🟢 Low | Graceful fallback needed |
+| 10 | **Radio station streams buffer infinitely on slow connections** | Slow WiFi → Radio starts but keeps buffering | 🟡 Medium | Better timeout handling needed |
+
+### Performance Bottlenecks
+
+- 🔴 **IndexedDB queries with >1000 songs**: The `getSongs()` call gets ALL songs and filters in memory. This will freeze the UI on low-end devices with large music libraries. **Fix needed**: Implement pagination or virtual scrolling in LibraryView.
+- 🟡 **Audio visualization on low-end devices**: Running Web Audio API analyser at 60fps while rendering React components causes frame drops. **Fix**: Use `requestAnimationFrame` throttling, reduce FPS on battery.
+- 🟡 **Python backend cold start**: The first API call to FastAPI takes 3–5s because of library imports (librosa, spleeter). **Fix**: Lazy-load heavy modules or keep server warm.
+- 🔴 **No request caching for charts**: iTunes/Deezer charts are fetched on every app load with no local caching. Adds ~2s to startup time. **Fix**: Cache chart data in IndexedDB with TTL.
+
+### Security Issues
+
+- ⚠️ **API keys in client-side `.env`**: `VITE_GEMINI_API_KEY` and Firebase config are bundled into the frontend build and visible in browser devtools. Any user can extract them. **Mitigation**: Use server-side proxy for Gemini calls (implement `POST /api/ai/proxy` on Express server).
+- ⚠️ **Firestore rules might be too permissive**: If set to test mode, any authenticated user can read/write all data. **Fix**: Deploy proper security rules (included in `firestore.rules`).
+- ⚠️ **No rate limiting on API endpoints**: Anyone can hit `/api/charts/...` unlimitedly. Could be abused for DDoS. **Fix**: Add express-rate-limit.
+- ⚠️ **Cloudinary unsigned uploads**: If the preset allows unsigned uploads, anyone could upload arbitrary files to your Cloudinary account. **Fix**: Use signed uploads (currently implemented, but verify).
+
+### Features That Work But Work Badly
+
+- 🟡 **Party Mode**: Works for 2-3 people in the same room, but no real-time sync. Each person hears their own audio. Not truly collaborative.
+- 🟡 **Music Quiz**: Questions are randomly generated, sometimes too easy or too hard. No difficulty levels.
+- 🟡 **Lyrics sync**: Only works for songs where we fetched lyrics. No manual timing adjustment.
+- 🟡 **Import playlist**: Only supports basic text format. No Spotify, Apple Music, or YouTube Music import yet.
+
+### Technical Debt
+
+- 📝 **App.tsx is 3200+ lines**: The main component handles ALL views, state, routing, and logic. Needs to be split into smaller modules.
+- 📝 **Inconsistent state management**: Some state uses React context, some uses prop drilling, some uses custom hooks. No unified store (Redux/Zustand).
+- 📝 **Duplicated native code**: Two Android project directories (`android/` and `android_native/`) with similar but not identical code. One should be deleted.
+- 📝 **No TypeScript strict mode**: The `tsconfig.json` doesn't have `strict: true`. Many `any` types in the codebase.
+- 📝 **Python requirements not version-pinned**: `requirements.txt` may not list all dependencies with versions, causing build breakage on different Python versions.
+- 📝 **No automated tests**: Zero unit tests, zero integration tests. Everything is manual QA.
+- 📝 **Hardcoded API URLs**: Python server URL (`http://localhost:8000`) is hardcoded in components. Should use an environment variable.
+
+---
+
+## 🧩 SECTION 10: MODIFICATION & ADDON GUIDE
+
+### MOD 1: Adding a New AI Model (e.g., Switching from Gemini to GPT-4)
+
+- **Difficulty:** ⭐⭐⭐ (3/5)
+- **Time:** 2–4 hours
+- **Files to modify:**
+  - `services/aiService.ts` — Replace Gemini client with OpenAI client
+  - `services/lyricsAiService.ts` — Update model calls for lyrics generation
+  - `app/ai/mood_dj.py` — Replace Gemini with OpenAI in Python backend
+  - `.env` — Add `VITE_OPENAI_API_KEY`
+  - `env.d.ts` — Declare new env variable
+
+- **New files to create:**
+  - `services/openaiService.ts` — OpenAI wrapper (optional, can modify aiService.ts)
+
+- **Dependencies to add:**
+  ```bash
+  npm install openai
+  pip install openai
+  ```
+
+- **Step-by-step implementation:**
+
+  1. Install OpenAI SDK:
+     ```bash
+     npm install openai
+     cd app && pip install openai
+     ```
+
+  2. Add your OpenAI API key to `.env`:
+     ```
+     VITE_OPENAI_API_KEY=sk-your-key-here
+     ```
+
+  3. Modify `services/aiService.ts`:
+     ```typescript
+     import OpenAI from 'openai';
+
+     const openai = new OpenAI({
+       apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+       dangerouslyAllowBrowser: true // NOTE: only for development
+     });
+
+     // Replace Gemini call with OpenAI
+     export const generateMoodPlaylist = async (input: string, count: number) => {
+       const response = await openai.chat.completions.create({
+         model: 'gpt-4o-mini', // cheaper than GPT-4o
+         messages: [
+           {
+             role: 'system',
+             content: 'You are a music DJ AI. Return only valid JSON arrays.'
+           },
+           {
+             role: 'user',
+             content: `Create ${count} songs matching this mood: "${input}"`
+           }
+         ],
+         response_format: { type: 'json_object' },
+         temperature: 0.8,
+       });
+
+       return JSON.parse(response.choices[0].message.content || '[]');
+     };
+     ```
+
+  4. Update `app/ai/mood_dj.py` similarly for the Python backend.
+
+- **How to test:** Generate a mood playlist → Should return songs from GPT-4. Compare quality with Gemini results. Check response time (GPT-4o-mini should be faster).
+
+---
+
+### MOD 2: Adding a New Content Type (e.g., "Podcasts")
+
+- **Difficulty:** ⭐⭐ (2/5)
+- **Time:** 3–6 hours
+- **Files to modify:**
+  - `types.ts` — Add `Podcast` and `PodcastEpisode` interfaces
+  - `components/constants.ts` — Add to nav items
+  - `App.tsx` — Add import and route for PodcastView
+  - `components/db.ts` — Add IndexedDB store for podcasts
+  - `server.ts` or `app/sources/` — Add podcast source (e.g., Apple Podcasts, RSS)
+
+- **New files to create:**
+  - `components/PodcastView.tsx` — Main podcast browser
+  - `components/PodcastPlayer.tsx` — Podcast-specific player
+  - `components/PodcastSubscriptionModal.tsx` — Subscribe to podcasts
+  - `services/podcastService.ts` — Podcast feed parsing & management
+
+- **Step-by-step:**
+
+  1. Define types in `types.ts`:
+     ```typescript
+     export interface Podcast {
+       id: string;
+       title: string;
+       author: string;
+       description: string;
+       artworkUrl: string;
+       feedUrl: string;
+       episodes: PodcastEpisode[];
+       categories: string[];
+     }
+
+     export interface PodcastEpisode {
+       id: string;
+       podcastId: string;
+       title: string;
+       description: string;
+       audioUrl: string;
+       duration: number;
+       publishedDate: string;
+       played: boolean;
+       progress: number;
+     }
+     ```
+
+  2. Create `services/podcastService.ts`:
+     ```typescript
+     // Parse RSS/Atom feeds, fetch episodes, manage subscriptions
+     export const fetchPodcastFeed = async (feedUrl: string): Promise<Podcast> => { ... };
+     export const searchPodcasts = async (query: string): Promise<Podcast[]> => { ... };
+     export const subscribeToPodcast = async (podcast: Podcast): Promise<void> => { ... };
+     ```
+
+  3. Add IndexedDB store in `components/db.ts`:
+     ```typescript
+     const podcastDB = new Store('podcasts', { keyPath: 'id' });
+     const episodeDB = new Store('podcast_episodes', { keyPath: 'id' });
+     ```
+
+  4. Create the React components (PodcastView, PodcastPlayer, etc.)
+
+- **How to test:** Search for a podcast → Subscribe → Play an episode → Progress saves and resumes → Episode shows as played
+
+---
+
+### MOD 3: Adding User Authentication
+
+- **Difficulty:** ⭐⭐ (2/5)
+- **Time:** Already implemented! ✅
+- **Current auth system:** Firebase Auth with Email/Password + Google Sign-In + Guest mode
+- **To add more providers:**
+  - Apple Sign-In: Enable in Firebase Console + add `@capacitor-community/apple-sign-in`
+  - Phone Auth: Enable in Firebase Console + add phone UI flow
+  - Twitter/GitHub: Enable in Firebase Console + add OAuth flow
+
+---
+
+### MOD 4: Adding Payment/Subscription System
+
+- **Difficulty:** ⭐⭐⭐⭐ (4/5)
+- **Time:** 1–2 weeks
+- **Files to modify:**
+  - `components/SettingsView.tsx` — Add subscription section
+  - `components/ProfileView.tsx` — Show premium status
+  - `components/constants.ts` — Premium feature flags
+  - `App.tsx` — Premium-gated features
+
+- **New files to create:**
+  - `services/subscriptionService.ts` — Subscription state management
+  - `components/PurchaseModal.tsx` — Subscription UI
+  - `app/server.py` — Add endpoint `POST /api/create-checkout-session`
+  - `app/billing/` — Billing logic directory
+
+- **Dependencies to add:**
+  ```bash
+  npm install @stripe/stripe-js @stripe/react-stripe-js
+  pip install stripe
+  ```
+
+- **Implementation outline:**
+
+  1. Set up Stripe products in Stripe Dashboard (Monthly $4.99, Yearly $49.99)
+  2. Create Express/Python endpoint for creating checkout sessions
+  3. Store subscription status in Firestore (`users/{uid}/subscription`)
+  4. Premium features: Cloud sync, advanced EQ presets, unlimited AI generations, no ads, offline downloads
+  5. Use Firebase Extension "Run Subscription Payments with Stripe" for webhook handling
+
+---
+
+### MOD 5: Adding a New Social Media Platform (e.g., TikTok integration)
+
+- **Difficulty:** ⭐⭐⭐ (3/5)
+- **Time:** 1–3 days
+- **Files to modify:**
+  - `services/shareService.ts` — Add TikTok sharing
+  - `components/ReelsView.tsx` — Cross-posting option
+  - `components/SettingsView.tsx` — Connected accounts
+
+- **New files to create:**
+  - `services/tiktokService.ts` — TikTok API wrapper
+
+- **Dependencies:**
+  ```bash
+  npm install tiktok-api  # if available, otherwise use direct REST
+  ```
+
+---
+
+### MOD 6: Making It Faster / More Scalable
+
+- **Difficulty:** ⭐⭐⭐⭐ (4/5)
+- **Time:** 2–5 days
+- **Files to modify:**
+  - `components/LibraryView.tsx` — Add virtual scrolling (react-window)
+  - `components/db.ts` — Add pagination to IndexedDB queries
+  - `services/audioEngine.ts` — Lazy load AudioContext
+  - `services/recommendationService.ts` — Cache recommendations
+  - `server.ts` — Add response caching headers
+  - `app/server.py` — Add Redis caching layer
+
+- **New files:**
+  - `services/cacheService.ts` — Centralized caching
+  - `hooks/useVirtualList.ts` — Virtual list hook
+
+- **Dependencies:**
+  ```bash
+  npm install react-window @types/react-window
+  pip install redis aioredis
+  ```
+
+- **Key optimizations:**
+  - Virtual scrolling for library (renders only visible items)
+  - Debounced search (300ms delay)
+  - AudioContext lazy initialization (create on first user interaction)
+  - IndexedDB batch operations (write in chunks of 50)
+  - Service Worker caching for API responses
+  - WebWorker for heavy computations (audio analysis)
+
+---
+
+### MOD 7: Adding a Mobile App Frontend (React Native)
+
+- **Difficulty:** ⭐⭐⭐⭐⭐ (5/5)
+- **Time:** 1–2 months
+- **Note:** The current app already uses Capacitor (web-based Android). This mod is for a true native React Native app.
+
+- **New project:** Separate React Native project using existing Firebase backend
+- **Shared code:** Types, API services, Firestore logic
+- **Platform-specific:** Navigation (React Navigation), audio (expo-av/react-native-track-player), gestures
+- **Cost:** Start from scratch, or use Expo to wrap existing web app
+
+---
+
+### MOD 8: Adding an Admin Dashboard
+
+- **Difficulty:** ⭐⭐ (2/5)
+- **Time:** 2–3 days
+- **Existing file:** `components/AdminView.tsx` — Already has basic admin functionality
+
+- **To enhance:**
+  - Add user management (view, block, delete users)
+  - Content moderation (flagged reels, comments)
+  - Analytics dashboard (total users, plays, growth)
+  - Feature flag management (toggle AI features, reels, etc.)
+  - Announcement system (push in-app notifications)
+
+- **New files:**
+  - `components/admin/UserManagement.tsx`
+  - `components/admin/ModerationQueue.tsx`
+  - `components/admin/AnalyticsDashboard.tsx`
+
+---
+
+### MOD 9: Adding Analytics Tracking
+
+- **Difficulty:** ⭐ (1/5)
+- **Time:** 2–4 hours
+- **Existing file:** `services/analyticsService.ts` — Already has basic event tracking
+
+- **To enhance:**
+  - Add Google Analytics for Firebase (already configured in Firebase Console)
+  - Track all user events: play, pause, like, create playlist, search, etc.
+  - Create analytics dashboard in `AdminView.tsx`
+  - Export analytics to CSV
+
+```typescript
+// In services/analyticsService.ts
+import { analytics } from 'firebase/analytics';
+
+export const trackEvent = (eventName: string, params?: Record<string, any>) => {
+  logEvent(analytics, eventName, params);
+};
+
+// Usage
+trackEvent('song_play', { songId: 's_001', artist: 'CKay', genre: 'afrobeats' });
+```
+
+---
+
+### MOD 10: Adding Scheduled/Automated Jobs
+
+- **Difficulty:** ⭐⭐⭐ (3/5)
+- **Time:** 1–2 days
+- **New files to create:**
+  - `app/cron/` — Python cron jobs directory
+  - `app/cron/daily_recommendations.py` — Generate daily For You playlists
+  - `app/cron/refresh_charts.py` — Update cached chart data
+  - `app/cron/cleanup_analytics.py` — Aggregate and archive old analytics
+
+- **Implementation:**
+  ```python
+  # app/cron/daily_recommendations.py
+  import asyncio
+  from datetime import datetime
+  
+  async def generate_daily_recommendations():
+      users = await get_all_active_users()
+      for user in users:
+          mood = infer_user_mood(user['recent_plays'])
+          playlist = await mood_dj.generate_playlist(mood)
+          await save_recommendation(user['id'], playlist)
+  
+  if __name__ == "__main__":
+      asyncio.run(generate_daily_recommendations())
+  ```
+
+- **Schedule with:**
+  - Linux: `crontab -e` → `0 6 * * * /path/to/python /app/cron/daily_recommendations.py`
+  - Windows: Task Scheduler
+  - Docker: Use `supervisord` or `celery beat`
+
+---
+
+### MOD 11: Adding Email Notifications
+
+- **Difficulty:** ⭐⭐ (2/5)
+- **Time:** 1 day
+- **New files to create:**
+  - `services/emailService.ts` — Email sending logic
+  - `app/email/templates/` — HTML email templates
+  - `app/email/__init__.py`
+
+- **Dependencies:**
+  ```bash
+  pip install sendgrid  # or use AWS SES, Mailgun, etc.
+  ```
+
+- **Implementation:**
+  1. Set up SendGrid account → Create API key
+  2. Add `SENDGRID_API_KEY` to `.env`
+  3. Send emails for: weekly wrap-up, new features, inactive user re-engagement
+
+---
+
+### MOD 12: Adding a Waitlist/Landing Page
+
+- **Difficulty:** ⭐ (1/5)
+- **Time:** 1 day
+- **New files to create:**
+  - `landing/index.html` — Beautiful landing page
+  - `landing/style.css` — Styling
+  - `landing/script.js` — Waitlist signup
+  - `app/server.py` — Add `POST /api/waitlist` endpoint
+
+- **Implementation:**
+  - Static landing page (HTML/CSS/JS) hosted on Vercel/Netlify
+  - Waitlist stores emails in Firestore `waitlist` collection
+  - Notify user when app is ready
+
+---
+
+## 🚢 SECTION 11: DEPLOYMENT GUIDE
+
+### Option A: Web Deployment (Vercel / Netlify)
+
+**Prerequisites:** A Vercel or Netlify account
+
+**Step 1: Build the frontend**
 ```bash
 npm run build
 ```
+This creates a `dist/` folder with static files.
 
-### 5. Synchronize Capacitor Assets with Mobile Shells
-To copy the compiled static assets into the Android native mobile project directories:
+**Step 2: Deploy to Vercel**
 ```bash
-npm run cap:sync
+npm i -g vercel
+vercel --prod
 ```
 
-### 6. Run Native Android App via Android Studio
-To open your Android Studio workspace pre-configured with Capacitor native hooks:
+Or connect your GitHub repo to Vercel:
+1. Go to [vercel.com/new](https://vercel.com/new)
+2. Import your GitHub repo
+3. Build command: `npm run build`
+4. Output directory: `dist`
+5. Add environment variables (all `VITE_*` variables)
+6. Deploy
+
+**Note:** Server-side features (charts API, Cloudinary) won't work on static hosting. You need to deploy the Express server separately, or use Vercel Serverless Functions.
+
+### Option B: Full Stack on Railway / Render
+
+1. Create account on [Railway](https://railway.app/) or [Render](https://render.com/)
+2. Connect GitHub repo
+3. Set build command: `npm run build`
+4. Set start command: `node server.ts`
+5. Set environment variables
+6. Port: `3000`
+
+**For Python backend:**
+1. Create separate service for Python
+2. Build command: `pip install -r requirements.txt`
+3. Start command: `uvicorn app.server:app --host 0.0.0.0 --port 8000`
+4. Add Python environment variables
+
+### Option C: Self-Hosted (VPS)
+
+**Step 1: Transfer files to server**
 ```bash
-npm run cap:open:android
+scp -r .env dist/ server.ts package.json node_modules/ user@your-server.com:~/mwijay/
 ```
-Once opened, click **Run** inside Android Studio to install the high-fidelity Bongo Flava player natively on your target Android device (compatible with Android 15!).
+
+**Step 2: Install dependencies on server**
+```bash
+ssh user@your-server.com
+cd ~/mwijay
+npm install --production
+```
+
+**Step 3: Start with PM2 (process manager)**
+```bash
+npm install -g pm2
+pm2 start server.ts --name mwijay-app
+pm2 start "uvicorn app.server:app --host 0.0.0.0 --port 8000" --name mwijay-python
+pm2 save
+pm2 startup
+```
+
+**Step 4: Set up Nginx reverse proxy**
+
+Create `/etc/nginx/sites-available/mwijay`:
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:8000;
+    }
+}
+```
+
+Then:
+```bash
+sudo ln -s /etc/nginx/sites-available/mwijay /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Firestore Security Rules
+
+Deploy these rules (`firestore.rules`):
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // User profiles — only the owner can read/write
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    match /profiles/{profileId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Playlists — owner can write, others can read if public
+    match /playlists/{playlistId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || resource.data.isPublic == true
+      );
+      allow write: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null;
+    }
+    
+    // Chat history — only the owner
+    match /chat_history/{chatId} {
+      allow read, write: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null;
+    }
+    
+    // Analytics — write only from authenticated users
+    match /analytics/{entryId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow write: if request.auth != null;
+    }
+    
+    // Waitlist — anyone can write
+    match /waitlist/{entryId} {
+      allow create: if true;
+      allow read: if request.auth != null && request.auth.token.isAdmin == true;
+    }
+    
+    // Deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+```
+
+Deploy with:
+```bash
+npx firebase deploy --only firestore:rules
+```
+
+### Monitoring After Deployment
+
+1. **Firebase Console** → Monitor auth events, Firestore usage, crash reports
+2. **Express logs** → `pm2 logs mwijay-app`
+3. **Python logs** → `pm2 logs mwijay-python`
+4. **Uptime monitoring** → [UptimeRobot](https://uptimerobot.com/) (free tier)
+5. **Error tracking** → [Sentry](https://sentry.io/) (free tier, 5k events/month)
+6. **Performance** → [Lighthouse](https://pagespeed.web.dev/) audit
+
+### Rollback Procedure
+
+If a deployment breaks:
+
+```bash
+# For PM2: Restart previous version
+pm2 list  # Get process IDs
+pm2 stop 0
+pm2 start 0 --update-env
+
+# For Vercel: Rollback in dashboard
+vercel rollback
+
+# For Git: Revert and redeploy
+git revert HEAD
+git push origin main
+# Redeploy via CI/CD
+```
+
+---
+
+## 💰 SECTION 12: COST CALCULATOR
+
+### Monthly Operating Costs
+
+| Service | Free Tier Limits | Paid Tier Start | Cost at 100 Users | Cost at 1,000 Users | Cost at 10,000 Users |
+|---------|-----------------|-----------------|-------------------|--------------------|----------------------|
+| **Firebase Auth** | 50k MAU free | $0.0055/MAU beyond | $0 | $0 (under 50k) | $0 (under 50k) |
+| **Firestore DB** | 1GB stored, 50k reads/day, 20k writes/day | $0.108/read unit, $0.18/write | $0 | $0 | ~$50–100/month |
+| **Firebase Storage** | 5GB free, 20k downloads/day | $0.026/GB beyond | $0 | $0 | ~$10–30/month |
+| **Gemini AI API** | 60 req/min, 1500 req/day | $0.10/1M input, $0.40/1M output | $0 | $0 | ~$2–5/month |
+| **Cloudinary** | 25GB storage, 25GB bandwidth | $0.01/GB beyond | $0 | $0 | $0 (small images) |
+| **Vercel Hosting** | 100GB bandwidth, 100k reqs/mo | $20/mo Pro | $0 | $20 | $170 (Team) |
+| **Python Server** | — | $5–7/mo on Railway | $5 | $7 | $25 |
+| **Custom Domain** | — | Included with paid | $0 | $0 | $0 |
+| **Deezer/API** | Free (public endpoints) | $0 | $0 | $0 | $0 |
+| **iTunes RSS** | Free (no auth needed) | $0 | $0 | $0 | $0 |
+| **TOTAL** | | | **~$5/month** | **~$27/month** | **~$200–300/month** |
+
+### Breakdown by Category
+
+**At 100 users (early stage):**
+- Most Firebase quotas not yet exceeded
+- Gemini free tier covers all AI requests
+- Vercel hobby tier sufficient
+- **Total: ~$5/month** (just the Python server)
+
+**At 1,000 users (growth stage):**
+- Firestore reads may approach limits (each user loads playlists, profile, etc.)
+- Vercel Pro needed
+- **Total: ~$27/month**
+
+**At 10,000 users (scaling):**
+- Firestore reads become significant cost driver
+- Need to optimize: cache aggressively, reduce Firestore reads
+- Might need dedicated server ($20–50/month)
+- **Total: ~$200–300/month**
+
+### Cost Optimization Tips
+
+1. **Cache chart data** in IndexedDB — saves Firestore reads
+2. **Reduce Gemini calls** — cache mood playlists locally, reuse for similar moods
+3. **Use smaller AI model** — Gemini 2.0 Flash is cheapest; avoid Gemini 2.0 Pro
+4. **Batch Firestore writes** — write analytics in batches of 50
+5. **Compress images** before uploading to Cloudinary
+6. **Lazy load components** — only render views when visible
+7. **Service Worker caching** — serve cached API responses offline
+
+---
+
+## 🗺️ SECTION 13: ROADMAP
+
+### SHORT TERM (Next 2 Weeks) — Priority Order
+
+1. **Bug Fix: Library freeze with 500+ songs** → Implement virtual scrolling in LibraryView using `react-window`
+2. **UX Fix: Player overlay rotation bug** → Lock orientation in overlay or handle resize properly
+3. **Feature: Offline caching** — Cache last 50 played songs' preview URLs in IndexedDB for offline playback
+4. **Feature: Crossfade between songs** — Add configurable crossfade duration (0-12 seconds)
+5. **Polish: Smart playlist suggestions** — AI generates playlist suggestions based on listening history on Home screen
+
+### MEDIUM TERM (Next 3 Months) — Product-Ready Features
+
+1. **Apple Music integration** — Use MusicKit JS to let users play their Apple Music library
+2. **Spotify integration** — Web Playback SDK + Playlist import
+3. **Collaborative playlists** — Real-time shared playlist editing via Firestore listeners
+4. **User-uploaded music** — Let users upload their own songs and share them (Cloudinary audio upload)
+5. **Full offline mode** — Manual "download for offline" on songs, playlists, and reels
+6. **Podcast support** — RSS feed parsing, subscriptions, episode management
+7. **Enhanced analytics dashboard** — User growth, retention, popular content, AI quality metrics
+8. **Push notifications** — New music recommendations, account activity, social interactions
+
+### LONG TERM (6–12 Months) — Version 2.0 Vision
+
+If everything goes perfectly, Mwijay 2.0 becomes:
+
+- **A full music social network** — Follow friends, see what they're listening to, share real-time listening activity
+- **AI music discovery engine** — Not just mood playlists, but a learning AI that understands your taste better than you do, discovers new artists before they're popular, and sends weekly "AI Discovered" playlists
+- **User-generated content platform** — Artists upload their music directly, listeners discover them, Mwijay handles distribution (like SoundCloud + TikTok combined)
+- **Live listening parties** — Synchronized playback with chat, like Spotify Group Session but with video + chat
+- **Music production tools** — Built-in beat maker, sample pad, loop recorder using the existing DSP engine
+- **Cross-platform everywhere** — Web + Android + iOS + Desktop (Electron) + Smart TV
+- **Artist monetization** — Tips, subscriptions, exclusive content for fans who support artists directly
+- **Mwijay API** — Third-party developers can build on top of Mwijay's music data
+
+**Version 2.0 would be a platform, not just an app. The music experience that adapts to you, grows with you, and connects you to music and people you'd never find otherwise.**
+
+---
+
+## 💡 SECTION 14: LESSONS LEARNED
+
+### What Worked Better Than Expected
+
+- ✅ **IndexedDB for local storage**: Choosing IndexedDB over simple `localStorage` was the right call. It handles thousands of song records easily, supports complex queries, and the `idb` wrapper makes it feel like a real database.
+- ✅ **Dual backend architecture (Node + Python)**: Keeping chart serving and simple APIs in Node (lightweight, shared frontend context) while pushing AI, audio DSP, and heavy analytics to Python was a good split. Each server does what it does best.
+- ✅ **Capacitor over React Native**: For a solo developer, Capacitor (web-first + native wrapper) was the right choice. Most code is shared between web and mobile. We got an Android app for free by wrapping the web app. React Native would have doubled the codebase.
+- ✅ **AI-powered features as differentiators**: The Mood DJ and AI Assistant are what make people say "wow" when they try the app. Without AI, this would be yet another music player for local files. AI is the secret sauce.
+- ✅ **Gamification driving engagement**: Adding XP, levels, and streaks turned passive listening into an active experience. Users want to see their level go up, maintain their streak, and unlock achievements.
+
+### What Was Harder Than Expected
+
+- ❌ **Audio streaming consistency**: Getting audio to play reliably across different URLs (Deezer 30s clips, radio streams, local files, YouTube extractions) was significantly harder than anticipated. Each source has different encoding, CORS policies, and streaming protocols.
+- ❌ **Android background playback**: The Android audio service lifecycle is complex. Keeping music playing when the app is closed, handling notifications, responding to lockscreen controls required deep Android knowledge. Multiple rewrites.
+- ❌ **Audio visualization performance**: Running real-time FFT analysis at 60fps while rendering particle effects in React is a performance challenge. Had to learn about `requestAnimationFrame` throttling, canvas optimization, and GPU acceleration.
+- ❌ **Firebase Firestore costs at scale**: Reading documents for every user interaction adds up. Had to re-architect data flow to batch reads, cache aggressively, and minimize document writes.
+- ❌ **Cross-source deduplication**: When searching for "Love Nwantiti" across 10 sources, you get the same song 10 times with different metadata. Building a deduplication algorithm that matches by title+artist normalization was harder than expected.
+
+### What We Would Do Differently If Starting Over
+
+1. **Use a state management library from day 1** — The App.tsx file grew to 3200 lines because there was no central state store. Redux or Zustand would have kept things modular.
+2. **Write tests from the beginning** — Zero tests means every refactor is terrifying. Even basic integration tests for the audio engine and API endpoints would have saved hours of debugging.
+3. **Abstract audio layer behind interface** — Hardcoding Web Audio API calls everywhere made it painful to add the native Android player. A clean `AudioPlayer` interface from day 1 would have made the native integration smoother.
+4. **TypeScript strict mode from day 1** — Too many `any` types crept in. Strict mode would have caught these early and made the codebase more maintainable.
+5. **Separate the monolith earlier** — App.tsx should have been split into smaller files around week 2, not month 3. By the time we wanted to refactor, it was too big to tackle in one sitting.
+6. **Use environment variables from day 1** — Hardcoded localhost URLs and API keys had to be fixed later. Tedious.
+7. **Mobile-first design** — Desktop-first meant the mobile UI was an afterthought. Mobile-first would have given a better phone experience from the start.
+
+### What Applies to ALL Future Projects
+
+- 🏆 **Ship the "wow" feature first** — AI features are what make people excited. In any new project, build the one thing that makes people say "whoa" before building the boring stuff.
+- 🏆 **Offline-first is hard but worth it** — Designing for offline from the start forces you to think about data durability, sync conflicts, and graceful degradation. It makes the product more robust overall.
+- 🏆 **Your future self hates tech debt** — Every `// TODO: fix this later` becomes a 3-hour debugging session 6 months later. Fix it now or document it well enough that future you can fix it quickly.
+- 🏆 **Real users break everything** — The best testing strategy is to get the app in front of real users as fast as possible. They will find bugs you never imagined existed.
+- 🏆 **API stability over features** — Once users depend on your app, changing API contracts breaks everything. Version your APIs. Maintain backward compatibility.
+- 🏆 **Log everything** — Crash logs, analytics, errors, warnings. When something breaks in production, logs are your only friend. Firebase Crashlytics + structured logging saved us multiple times.
+
+---
+
+## 📝 SECTION 15: QUICK REFERENCE CARD
+
+### One-Page Cheat Sheet
+
+#### Start the Servers
+
+```bash
+# Frontend + Express Server
+npm run dev                                # http://localhost:3000
+
+# Python Backend (separate terminal)
+cd app && uvicorn app.server:app --reload  # http://localhost:8000
+```
+
+#### Most Important API Endpoints
+
+| Endpoint | Method | Description | Example |
+|----------|--------|-------------|---------|
+| `/api/health` | GET | Server health check | `curl localhost:3000/api/health` |
+| `/api/charts/itunes?country=us` | GET | iTunes top songs | `curl "localhost:3000/api/charts/itunes?country=tz"` |
+| `/api/charts/deezer?chart=0` | GET | Deezer global chart | `curl localhost:3000/api/charts/deezer` |
+| `/api/cloudinary-signature` | GET | Cloudinary upload signature | `curl localhost:3000/api/cloudinary-signature` |
+| `/api/mood/playlist` (Python) | POST | Generate mood playlist | `curl -X POST localhost:8000/api/mood/playlist -d '{"user_input":"happy"}'` |
+| `/api/analytics/stats` (Python) | POST | Get listening stats | `curl -X POST localhost:8000/api/analytics/stats` |
+| `/docs` (Python) | GET | Swagger API docs | Open `localhost:8000/docs` in browser |
+
+#### Most Important Environment Variables
+
+```
+VITE_GEMINI_API_KEY=...           # Google Gemini AI (get from aistudio.google.com)
+VITE_FIREBASE_API_KEY=...         # Firebase (get from Firebase Console)
+VITE_FIREBASE_AUTH_DOMAIN=...     # Firebase (get from Firebase Console)
+VITE_FIREBASE_PROJECT_ID=...      # Firebase (get from Firebase Console)
+CLOUDINARY_CLOUD_NAME=...         # Cloudinary (get from cloudinary.com dashboard)
+CLOUDINARY_API_KEY=...            # Cloudinary
+CLOUDINARY_API_SECRET=...         # Cloudinary
+```
+
+#### Most Common Fix Commands
+
+```bash
+# Dependencies broken
+rm -rf node_modules package-lock.json && npm install
+
+# Python venv issues
+cd app && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+
+# Port already in use (Windows)
+netstat -ano | findstr :3000
+taskkill /PID <PID> /F
+
+# Port in use (Mac/Linux)
+lsof -ti:3000 | xargs kill -9
+
+# Capacitor sync issues
+npx cap sync && npx cap copy
+
+# Clear local storage and force refresh
+# Open browser → DevTools → Application → Clear storage → Clear site data
+
+# Firebase deploy
+npx firebase deploy --only firestore:rules
+```
+
+#### Links to Important Files
+
+| File | Purpose | 
+|------|---------|
+| `App.tsx` | 🎯 Main application entry (3200+ lines, all views & state) |
+| `server.ts` | 🌐 Express server (charts, Cloudinary, Vite) |
+| `app/server.py` | 🐍 Python FastAPI backend (AI, analytics, DSP) |
+| `services/audioEngine.ts` | 🎵 Core audio playback & DSP chain |
+| `services/firebase.ts` | 🔥 Firebase initialization & utilities |
+| `services/aiService.ts` | 🤖 AI integration (Gemini + OpenAI-ready) |
+| `components/db.ts` | 🗄️ IndexedDB local storage operations |
+| `types.ts` | 📐 All TypeScript type definitions |
+| `utils/gamification.ts` | 🏆 XP, levels, streaks, achievements |
+| `utils/helpers.ts` | 🛠️ Utility functions (700+ lines) |
+| `app/ai/mood_dj.py` | 🎧 Mood-based AI playlist generator |
+| `app/sources/unified_search.py` | 🔍 Multi-source music search aggregator |
+| `android/app/src/main/java/.../MusicService.java` | 📱 Android background playback service |
+| `.env.example` | 📋 Template for environment variables |
+| `firestore.rules` | 🔒 Firestore security rules |
+
+#### Build & Deploy Commands
+
+```bash
+# Build for production
+npm run build                        # Output: dist/
+
+# Deploy to Vercel
+vercel --prod                         # Single command
+
+# Android build
+npm run build && npx cap sync && npx cap open android
+
+# Production start (both servers)
+pm2 start server.ts --name mwijay
+pm2 start "uvicorn app.server:app --port 8000" --name mwijay-py
+
+# Full system restart
+pm2 restart all
+```
+
+---
+
+> **Built with ❤️ by Mwijay** | [GitHub](https://github.com/mwijay12/Mwijay-Music-App) | [Report Bug](https://github.com/mwijay12/Mwijay-Music-App/issues) | [Request Feature](https://github.com/mwijay12/Mwijay-Music-App/issues)
+>
+> *"The music app that grows with you, learns from you, and connects you to music you never knew you needed."*

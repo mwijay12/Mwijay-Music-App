@@ -178,6 +178,7 @@ function getSourceIcon(source: string): string {
   const icons: Record<string, string> = {
     local: '📱',
     cloudinary: '☁️',
+    r2: '☁️',
     itunes: '🎵',
     deezer: '🎧',
   };
@@ -188,6 +189,7 @@ function getSourceLabel(source: string): string {
   const labels: Record<string, string> = {
     local: 'On Phone',
     cloudinary: 'My Uploads',
+    r2: 'R2 Uploads',
     itunes: 'iTunes',
     deezer: 'Deezer',
   };
